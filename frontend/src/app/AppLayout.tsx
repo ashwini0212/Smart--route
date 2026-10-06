@@ -23,6 +23,8 @@ const navigation: NavItem[] = [
   { to: '/planner', label: 'Route planner' },
   { to: '/deliveries', label: 'My deliveries', roles: ['DRIVER'] },
   { to: '/analytics', label: 'Analytics' },
+  // Staff only, like the endpoint: it is the one page that costs money per use.
+  { to: '/assistant', label: 'Assistant', roles: ['ADMIN', 'DISPATCHER'] },
   { to: '/events', label: 'Events' },
   { to: '/admin', label: 'Admin', roles: ['ADMIN'] },
 ]

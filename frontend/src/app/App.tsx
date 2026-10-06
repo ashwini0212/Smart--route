@@ -4,6 +4,7 @@ import { AppLayout } from './AppLayout'
 import { RequireAuth } from './RequireAuth'
 import { AdminPage } from '../pages/AdminPage'
 import { AnalyticsPage } from '../pages/AnalyticsPage'
+import { AssistantPage } from '../pages/AssistantPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { DeliveriesPage } from '../pages/DeliveriesPage'
 import { DriversPage } from '../pages/DriversPage'
@@ -74,6 +75,14 @@ export function App() {
           }
         />
         <Route path="analytics" element={<AnalyticsPage />} />
+        <Route
+          path="assistant"
+          element={
+            <RequireAuth roles={['ADMIN', 'DISPATCHER']}>
+              <AssistantPage />
+            </RequireAuth>
+          }
+        />
         <Route path="*" element={<Card title="Page not found">That address does not exist in SmartRoute.</Card>} />
       </Route>
     </Routes>

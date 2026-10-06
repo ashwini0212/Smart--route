@@ -88,6 +88,12 @@ services:
       # [SIMULATION] Off unless you ask for it: these generate driver positions and traffic.
       SIMULATE_DRIVERS: ${SIMULATE_DRIVERS:-false}
       SIMULATE_TRAFFIC: ${SIMULATE_TRAFFIC:-false}
+      # The optional assistant (Phase 14). Off, and off again without a key: the API then answers 503 with
+      # the reason and the Assistant page says which setting is missing.
+      ASSISTANT_ENABLED: ${ASSISTANT_ENABLED:-false}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ASSISTANT_MODEL: ${ASSISTANT_MODEL:-claude-opus-5-5}
+      ASSISTANT_EFFORT: ${ASSISTANT_EFFORT:-medium}
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
     depends_on:

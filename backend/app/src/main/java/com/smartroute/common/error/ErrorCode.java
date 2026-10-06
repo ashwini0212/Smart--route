@@ -19,6 +19,10 @@ public enum ErrorCode {
     /** Both points are on the network but no road connects them in the travel direction. */
     NO_ROUTE(HttpStatus.UNPROCESSABLE_CONTENT),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS),
+    /** An optional feature was asked for while it is not configured (the assistant without an API key). */
+    FEATURE_NOT_CONFIGURED(HttpStatus.SERVICE_UNAVAILABLE),
+    /** A service we depend on but do not run failed or refused the request. */
+    UPSTREAM_FAILED(HttpStatus.BAD_GATEWAY),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final HttpStatus status;

@@ -12,6 +12,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import static com.tngtech.archunit.core.domain.AccessTarget.Predicates.declaredIn;
+import static com.tngtech.archunit.core.domain.JavaCall.Predicates.target;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
+import static com.tngtech.archunit.core.domain.properties.HasName.Predicates.nameMatching;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
@@ -61,4 +65,24 @@ class ArchitectureTest {
                     .and().areDeclaredInClassesThat().doNotHaveSimpleName("AuthController")
                     .should().beAnnotatedWith(PreAuthorize.class)
                     .orShould().beDeclaredInClassesThat().areAnnotatedWith(PreAuthorize.class);
+
+    /**
+     * The assistant's tools may only read.
+     *
+     * <p>This is the rule that makes "the assistant cannot change anything" a property of the build rather
+     * than a sentence in a prompt. A model that asked to cancel an order would have to find a tool that can,
+     * and a tool that could would fail here: the names below are how every write in this codebase is spelled.
+     */
+    @ArchTest
+    static final ArchRule assistantToolsOnlyRead =
+            noClasses().that().resideInAPackage("com.smartroute.assistant.tools..")
+                    // Whole-name matches, not prefixes: OrderResponse.createdAt() is a reader whose name
+                    // starts with "create", and assignmentView() is a reader whose name starts with "assign".
+                    .should().callMethodWhere(target(declaredIn(resideInAPackage("com.smartroute..")))
+                            .and(target(nameMatching(
+                            "save|saveAll|delete|deleteAll|deleteById|create|update|updateLocation|cancel"
+                                    + "|assign|unassign|transition|markAssigned|deliveryUpdate|setActive"
+                                    + "|changeStatus|rebuild|reserveCapacity|releaseCapacity|persist|merge"
+                                    + "|remove|flush"))))
+                    .because("the assistant is read-only; a tool that can write makes the prompt the only guard");
 }

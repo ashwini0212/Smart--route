@@ -382,3 +382,42 @@ export interface EtaAccuracy {
   withinFiveMinutes: number
   definitions: string[]
 }
+
+/** Whether the optional assistant (FR-24) is configured, and which read-only tools it has. */
+export interface AssistantStatus {
+  enabled: boolean
+  reason: string
+  model: string
+  tools: string[]
+}
+
+export interface AssistantToolCall {
+  tool: string
+  arguments: string
+  failed: boolean
+  millis: number
+}
+
+export interface AssistantUsage {
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
+  requests: number
+}
+
+/**
+ * One answer. `sectionsParsed` is false when the model did not follow the three-section shape; then only
+ * `text` is meaningful, and the page shows it as written rather than showing less than the model said.
+ */
+export interface AssistantAnswer {
+  facts: string[]
+  recommendations: string[]
+  uncertainty: string[]
+  text: string
+  sectionsParsed: boolean
+  toolCalls: AssistantToolCall[]
+  toolRounds: number
+  toolLimitReached: boolean
+  model: string
+  usage: AssistantUsage
+}

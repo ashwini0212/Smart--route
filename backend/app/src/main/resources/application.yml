@@ -103,6 +103,17 @@ smartroute:
     enabled: ${EVENTS_ENABLED:true}
     relay-interval: ${EVENTS_RELAY_INTERVAL:500ms}
     keep-published: ${EVENTS_KEEP_PUBLISHED:7d}
+  assistant:
+    # The one optional feature (FR-24). Off unless both the flag is on and a key is present: a flag without a
+    # key is not a configured assistant, and the API says so rather than failing on the first question.
+    enabled: ${ASSISTANT_ENABLED:false}
+    api-key: ${ANTHROPIC_API_KEY:}
+    model: ${ASSISTANT_MODEL:claude-opus-5-5}
+    max-tokens: ${ASSISTANT_MAX_TOKENS:4000}
+    # Each round is a paid request. Six is enough for "look up the warehouse, then its waiting orders, then
+    # rank drivers for the oldest one" with room to recover from a wrong argument.
+    max-tool-rounds: ${ASSISTANT_MAX_TOOL_ROUNDS:6}
+    effort: ${ASSISTANT_EFFORT:medium}
   metrics:
     # The domain gauges (orders waiting, deliveries active, drivers available, outbox depth) are
     # recomputed on this timer rather than inside a Prometheus scrape, so the database cost does not

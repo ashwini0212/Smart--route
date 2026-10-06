@@ -2,6 +2,8 @@ import { query, request } from './client'
 import type {
   AnalyticsOverview,
   AssignmentResponse,
+  AssistantAnswer,
+  AssistantStatus,
   AssignmentSettings,
   AutoDispatchResult,
   CandidateRanking,
@@ -172,6 +174,12 @@ export const admin = {
     request<UserResponse>(`/api/admin/users/${id}/role${query({ role })}`, { method: 'PUT' }),
   setEnabled: (id: number, enabled: boolean) =>
     request<UserResponse>(`/api/admin/users/${id}/enabled${query({ enabled })}`, { method: 'PUT' }),
+}
+
+export const assistant = {
+  status: () => request<AssistantStatus>('/api/assistant/status'),
+  ask: (question: string) =>
+    request<AssistantAnswer>('/api/assistant/ask', { method: 'POST', body: { question } }),
 }
 
 export const analytics = {

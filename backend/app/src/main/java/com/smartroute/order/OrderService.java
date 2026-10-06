@@ -14,6 +14,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -150,6 +151,14 @@ public class OrderService {
     public List<OrderResponse> activeForDriver(long driverId) {
         return orders.findByDriverIdAndStatusInOrderByAssignedAtAscIdAsc(driverId, ACTIVE).stream()
                 .map(OrderResponse::from).toList();
+    }
+
+    /**
+     * Lookup by the code a human uses (ORD-000042). The assistant hears codes, never ids, and an endpoint
+     * that made it guess the id would make it guess.
+     */
+    public Optional<OrderResponse> findByCode(String code) {
+        return orders.findByCode(code).map(OrderResponse::from);
     }
 
     public OrderAssignmentView assignmentView(long id) {
