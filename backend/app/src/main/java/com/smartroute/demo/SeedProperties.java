@@ -5,6 +5,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 /**
  * Size and area of the generated demo data. Defaults cover the synthetic 100×100 city around
  * central Bengaluru (origin 12.955, 77.575; ~15 km × 15 km).
+ *
+ * @param demoPassword password for the demo logins (one per role); no demo users are created when blank
  */
 @ConfigurationProperties(prefix = "smartroute.seed")
 public record SeedProperties(
@@ -14,7 +16,8 @@ public record SeedProperties(
         double minLatitude,
         double maxLatitude,
         double minLongitude,
-        double maxLongitude) {
+        double maxLongitude,
+        String demoPassword) {
 
     public SeedProperties {
         if (randomSeed == 0) {

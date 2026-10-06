@@ -39,6 +39,13 @@ class DemoDataSeederTest {
     }
 
     @Test
+    void createsOneDemoLoginPerRoleWithDriversLinkedToSeededDrivers() {
+        assertThat(count("SELECT count(DISTINCT role) FROM app_user")).isEqualTo(4);
+        assertThat(count("SELECT count(*) FROM app_user WHERE role = 'DRIVER' AND driver_id IS NOT NULL")).isEqualTo(2);
+        assertThat(count("SELECT count(*) FROM app_user WHERE email NOT LIKE '%@smartroute.local'")).isZero();
+    }
+
+    @Test
     void isDeterministicForTheSameSeed() {
         // Values below come from the fixed random seed; a change means the generator changed.
         String firstDriver = jdbc.queryForObject("SELECT full_name FROM driver ORDER BY id LIMIT 1", String.class);

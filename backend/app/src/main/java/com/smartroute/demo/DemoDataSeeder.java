@@ -1,5 +1,8 @@
 package com.smartroute.demo;
 
+import com.smartroute.auth.CreateUserRequest;
+import com.smartroute.auth.UserAccountService;
+import com.smartroute.common.security.Role;
 import com.smartroute.fleet.DriverRequest;
 import com.smartroute.fleet.DriverResponse;
 import com.smartroute.fleet.DriverService;
@@ -20,6 +23,7 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -37,9 +41,14 @@ import java.util.Random;
  * <p>All people are fictional: names are random combinations of common first names and surnames, and
  * phone numbers use the obviously fake {@code +91 90000 xxxxx} range. Everything goes through the
  * normal services, so seed data obeys the same validation as API requests.
+ *
+ * <p>Demo logins ({@code admin@smartroute.local}, {@code dispatcher@}, {@code viewer@}, {@code driver1@},
+ * {@code driver2@}) are created only when {@code DEMO_USER_PASSWORD} is set; the password is never in the code.
  */
 @Component
 @Profile("seed")
+@Order(0) // before AdminBootstrap, which then sees the seeded admin
+
 @EnableConfigurationProperties(SeedProperties.class)
 class DemoDataSeeder implements ApplicationRunner {
 
@@ -59,15 +68,17 @@ class DemoDataSeeder implements ApplicationRunner {
     private final VehicleService vehicles;
     private final DriverService drivers;
     private final OrderService orders;
+    private final UserAccountService users;
     private final Clock clock;
 
     DemoDataSeeder(SeedProperties properties, WarehouseService warehouses, VehicleService vehicles,
-                   DriverService drivers, OrderService orders, Clock clock) {
+                   DriverService drivers, OrderService orders, UserAccountService users, Clock clock) {
         this.properties = properties;
         this.warehouses = warehouses;
         this.vehicles = vehicles;
         this.drivers = drivers;
         this.orders = orders;
+        this.users = users;
         this.clock = clock;
     }
 
@@ -81,6 +92,7 @@ class DemoDataSeeder implements ApplicationRunner {
         List<WarehouseResponse> hubs = seedWarehouses();
         List<DriverResponse> seededDrivers = seedFleet(random, hubs);
         seedOrders(random, hubs);
+        seedUsers(seededDrivers);
         log.info("Seeded {} warehouses, {} drivers with vehicles, {} orders (seed {})",
                 hubs.size(), seededDrivers.size(), properties.orders(), properties.randomSeed());
     }
@@ -141,6 +153,23 @@ class DemoDataSeeder implements ApplicationRunner {
                     uniform(random, properties.minLongitude(), properties.maxLongitude()),
                     priority, weight, volume, required, windowStart, windowEnd));
         }
+    }
+
+    private void seedUsers(List<DriverResponse> seededDrivers) {
+        String password = properties.demoPassword();
+        if (password == null || password.isBlank()) {
+            log.warn("DEMO_USER_PASSWORD is not set: no demo logins were created");
+            return;
+        }
+        users.create(new CreateUserRequest("admin@smartroute.local", "Demo Admin", Role.ADMIN, null, password));
+        users.create(new CreateUserRequest("dispatcher@smartroute.local", "Demo Dispatcher", Role.DISPATCHER, null, password));
+        users.create(new CreateUserRequest("viewer@smartroute.local", "Demo Viewer", Role.VIEWER, null, password));
+        for (int i = 0; i < Math.min(2, seededDrivers.size()); i++) {
+            DriverResponse driver = seededDrivers.get(i);
+            users.create(new CreateUserRequest("driver%d@smartroute.local".formatted(i + 1), driver.fullName(),
+                    Role.DRIVER, driver.id(), password));
+        }
+        log.info("Created demo logins for every role (password from DEMO_USER_PASSWORD)");
     }
 
     private static VehicleRequest vehicleFor(VehicleType type, int index) {
