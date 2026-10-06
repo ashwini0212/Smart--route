@@ -21,8 +21,28 @@ spring:
   flyway:
     locations: classpath:db/migration
 
+smartroute:
+  security:
+    jwt:
+      # No usable default: the app refuses to start without a secret of at least 32 bytes.
+      secret: ${JWT_SECRET:}
+      access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:15m}
+      refresh-token-ttl: ${JWT_REFRESH_TOKEN_TTL:7d}
+    refresh-cookie:
+      secure: ${REFRESH_COOKIE_SECURE:true}
+    cors-allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
+    bootstrap-admin:
+      email: ${ADMIN_EMAIL:}
+      password: ${ADMIN_PASSWORD:}
+  seed:
+    # Password for the demo logins created by the "seed" profile; demo users are skipped when empty.
+    demo-password: ${DEMO_USER_PASSWORD:}
+
 server:
   port: ${SERVER_PORT:8080}
+  # Take the client IP and scheme from X-Forwarded-* headers, but only when the direct peer is on a
+  # private network (the reverse proxy). Needed so the login rate limit sees real client IPs, not nginx's.
+  forward-headers-strategy: native
   # Never leak stack traces or exception messages to API clients.
   error:
     include-stacktrace: never

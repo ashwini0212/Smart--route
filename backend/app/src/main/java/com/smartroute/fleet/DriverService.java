@@ -77,6 +77,10 @@ public class DriverService {
         return drivers.count();
     }
 
+    public boolean exists(long id) {
+        return drivers.existsById(id);
+    }
+
     public DriverResponse get(long id) {
         return DriverResponse.from(load(id));
     }

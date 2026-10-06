@@ -1,10 +1,14 @@
 package com.smartroute.support;
 
+import com.smartroute.auth.LoginRateLimiter;
+import com.smartroute.common.security.Role;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -12,7 +16,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
-/** Base class for API integration tests: clean database per test and small JSON helpers. */
+/**
+ * Base class for API integration tests: clean database per test and small JSON helpers.
+ * Helpers send an ADMIN bearer token unless a test passes another token (or {@code null} for anonymous).
+ */
 @IntegrationTest
 public abstract class ApiTestSupport {
 
@@ -23,23 +30,49 @@ public abstract class ApiTestSupport {
     protected ObjectMapper objectMapper;
 
     @Autowired
+    protected TestUsers users;
+
+    @Autowired
     private DatabaseCleaner cleaner;
+
+    @Autowired
+    private LoginRateLimiter loginRateLimiter;
+
+    protected String adminToken;
 
     @BeforeEach
     void cleanDatabase() {
         cleaner.clean();
+        loginRateLimiter.reset();
+        adminToken = users.token(Role.ADMIN);
     }
 
     protected ResultActions postJson(String url, String json) throws Exception {
-        return mockMvc.perform(post(url).contentType(MediaType.APPLICATION_JSON).content(json));
+        return postJson(url, json, adminToken);
+    }
+
+    protected ResultActions postJson(String url, String json, String token) throws Exception {
+        return mockMvc.perform(auth(post(url).contentType(MediaType.APPLICATION_JSON).content(json), token));
     }
 
     protected ResultActions putJson(String url, String json) throws Exception {
-        return mockMvc.perform(put(url).contentType(MediaType.APPLICATION_JSON).content(json));
+        return putJson(url, json, adminToken);
+    }
+
+    protected ResultActions putJson(String url, String json, String token) throws Exception {
+        return mockMvc.perform(auth(put(url).contentType(MediaType.APPLICATION_JSON).content(json), token));
     }
 
     protected ResultActions getUrl(String url) throws Exception {
-        return mockMvc.perform(get(url));
+        return getUrl(url, adminToken);
+    }
+
+    protected ResultActions getUrl(String url, String token) throws Exception {
+        return mockMvc.perform(auth(get(url), token));
+    }
+
+    protected static MockHttpServletRequestBuilder auth(MockHttpServletRequestBuilder request, String token) {
+        return token == null ? request : request.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
     }
 
     protected JsonNode body(ResultActions result) throws Exception {
