@@ -86,6 +86,11 @@ public class RouteEngine {
         return new AlternativesOutcome(result, a, b, false);
     }
 
+    /** Snapping as the route endpoints use it; shared with multi-stop optimization. */
+    public SnappedPoint snapOrFail(RoadNetwork network, GeoPoint point, String label) {
+        return snap(network, point, label);
+    }
+
     private SnappedPoint snap(RoadNetwork network, GeoPoint point, String label) {
         NearestNodeIndex.Nearest nearest = network.index().nearest(point.latitude(), point.longitude())
                 .orElseThrow(() -> new ApiException(ErrorCode.LOCATION_OFF_NETWORK, "The road network is empty"));

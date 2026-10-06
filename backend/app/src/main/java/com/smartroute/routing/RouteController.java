@@ -34,11 +34,16 @@ class RouteController {
     private final RouteHistoryService history;
     private final RouteEngine engine;
     private final RoadNetworkProvider networks;
+    private final RouteOptimizationService optimizer;
+    private final RouteOptimizationLimiter limiter;
 
-    RouteController(RouteHistoryService history, RouteEngine engine, RoadNetworkProvider networks) {
+    RouteController(RouteHistoryService history, RouteEngine engine, RoadNetworkProvider networks,
+                    RouteOptimizationService optimizer, RouteOptimizationLimiter limiter) {
         this.history = history;
         this.engine = engine;
         this.networks = networks;
+        this.optimizer = optimizer;
+        this.limiter = limiter;
     }
 
     @PostMapping("/routes/shortest")
@@ -63,6 +68,16 @@ class RouteController {
         return outcome.routes().stream()
                 .map(route -> RouteResponse.of(null, route, outcome.from(), outcome.to(), outcome.cached(), null))
                 .toList();
+    }
+
+    @PostMapping("/routes/optimize")
+    @PreAuthorize(Access.ANY_USER)
+    @Operation(summary = "Visiting order for up to 20 stops: exact below 11 stops, nearest neighbour + 2-opt above "
+            + "[HEURISTIC]. With compare=true, runs the heuristic and reports the exact total beside it")
+    OptimizedRoute optimize(@Valid @RequestBody OptimizeRequest request,
+                            @RequestParam(defaultValue = "false") boolean compare) {
+        limiter.check(CurrentUser.require().id());
+        return compare ? optimizer.compareStrategies(request) : optimizer.optimize(request);
     }
 
     @GetMapping("/routes/{id}")
