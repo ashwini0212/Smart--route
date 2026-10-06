@@ -8,11 +8,13 @@ COPY .mvn .mvn
 COPY mvnw pom.xml ./
 COPY algorithms/pom.xml algorithms/pom.xml
 COPY app/pom.xml app/pom.xml
-RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -q dependency:go-offline -DexcludeReactor=true || true
+# The reactor lists every module, so every module's pom must exist even though only `app` is built.
+COPY benchmarks/pom.xml benchmarks/pom.xml
+RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -q -pl app -am dependency:go-offline -DexcludeReactor=true || true
 COPY algorithms/src algorithms/src
 COPY app/src app/src
-# Tests run in CI (and locally with ./mvnw verify); the image build only packages.
-RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -q package -DskipTests
+# Tests run in CI (and locally with ./mvnw verify); the image build only packages the app and what it needs.
+RUN --mount=type=cache,target=/root/.m2 ./mvnw -B -q -pl app -am package -DskipTests
 # Split the fat jar into layers so code changes don't invalidate the dependency layer.
 RUN java -Djarmode=tools -jar app/target/smartroute-app.jar extract --layers --launcher --destination extracted
 
