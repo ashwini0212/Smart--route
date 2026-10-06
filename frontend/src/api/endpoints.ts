@@ -1,9 +1,12 @@
 import { query, request } from './client'
 import type {
+  AnalyticsOverview,
   AssignmentResponse,
   AssignmentSettings,
   AutoDispatchResult,
   CandidateRanking,
+  EtaAccuracy,
+  FleetUsage,
   DriverResponse,
   DriverStatus,
   LivePosition,
@@ -20,6 +23,7 @@ import type {
   RouteResponse,
   SimulationStatus,
   SystemEventResponse,
+  ThroughputDay,
   TokenResponse,
   UserResponse,
   VehicleResponse,
@@ -167,4 +171,11 @@ export const admin = {
     request<UserResponse>(`/api/admin/users/${id}/role${query({ role })}`, { method: 'PUT' }),
   setEnabled: (id: number, enabled: boolean) =>
     request<UserResponse>(`/api/admin/users/${id}/enabled${query({ enabled })}`, { method: 'PUT' }),
+}
+
+export const analytics = {
+  overview: (days: number) => request<AnalyticsOverview>(`/api/analytics/overview${query({ days })}`),
+  throughput: (days: number) => request<ThroughputDay[]>(`/api/analytics/throughput${query({ days })}`),
+  fleet: (days: number, limit = 20) => request<FleetUsage>(`/api/analytics/fleet${query({ days, limit })}`),
+  etaAccuracy: (days: number) => request<EtaAccuracy>(`/api/analytics/eta-accuracy${query({ days })}`),
 }

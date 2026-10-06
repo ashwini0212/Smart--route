@@ -22,6 +22,7 @@ const navigation: NavItem[] = [
   { to: '/vehicles', label: 'Vehicles' },
   { to: '/planner', label: 'Route planner' },
   { to: '/deliveries', label: 'My deliveries', roles: ['DRIVER'] },
+  { to: '/analytics', label: 'Analytics' },
   { to: '/events', label: 'Events' },
   { to: '/admin', label: 'Admin', roles: ['ADMIN'] },
 ]

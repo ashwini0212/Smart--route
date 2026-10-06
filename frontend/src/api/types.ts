@@ -21,7 +21,7 @@ export type OrderStatus =
 export type OrderPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT'
 export type VehicleType = 'BIKE' | 'VAN' | 'TRUCK'
 export type VehicleStatus = 'ACTIVE' | 'MAINTENANCE' | 'RETIRED'
-export type DriverStatus = 'OFF_SHIFT' | 'AVAILABLE' | 'BUSY' | 'OFFLINE'
+export type DriverStatus = 'OFFLINE' | 'AVAILABLE' | 'ON_DELIVERY' | 'ON_BREAK'
 export type RouteMode = 'SHORTEST' | 'FASTEST'
 export type LocationSource = 'API' | 'SIMULATION'
 
@@ -304,4 +304,70 @@ export interface ApiErrorBody {
   path?: string
   traceId?: string
   fieldErrors?: { field: string; message: string }[]
+}
+
+/** Analytics (Phase 12). Each response carries the definitions its numbers were computed with. */
+
+export interface Distribution {
+  samples: number
+  p50: number | null
+  p90: number | null
+  mean: number | null
+}
+
+export interface AnalyticsOverview {
+  from: string
+  to: string
+  days: number
+  ordersByStatus: Record<string, number>
+  created: number
+  delivered: number
+  failed: number
+  cancelled: number
+  waitingNow: number
+  activeNow: number
+  deliveredWithWindow: number
+  onTime: number
+  late: number
+  onTimeRate: number | null
+  assignedToDeliveredMinutes: Distribution
+  definitions: string[]
+}
+
+export interface ThroughputDay {
+  day: string
+  created: number
+  delivered: number
+  failed: number
+  cancelled: number
+}
+
+export interface DriverPerformance {
+  driverId: number
+  driverCode: string
+  status: DriverStatus
+  delivered: number
+  late: number
+  failed: number
+  activeNow: number
+  medianMinutes: number | null
+}
+
+export interface FleetUsage {
+  driverCount: number
+  driversWithDeliveries: number
+  shareOfFleetUsed: number | null
+  deliveriesPerActiveDriver: number | null
+  perDriver: DriverPerformance[]
+  definitions: string[]
+}
+
+export interface EtaAccuracy {
+  samples: number
+  predictedMedianMinutes: number | null
+  actualMedianMinutes: number | null
+  medianDifferenceMinutes: number | null
+  p90DifferenceMinutes: number | null
+  withinFiveMinutes: number
+  definitions: string[]
 }

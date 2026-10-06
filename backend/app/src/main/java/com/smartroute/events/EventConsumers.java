@@ -1,9 +1,11 @@
 package com.smartroute.events;
 
+import com.smartroute.common.web.CorrelationId;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 
 import java.util.function.Consumer;
@@ -18,6 +20,11 @@ import java.util.function.Consumer;
  *
  * <p>Any other failure is rethrown, which is what triggers the retry and dead-letter handling configured in
  * {@link KafkaConfig}.
+ *
+ * <p>The envelope's correlation id is put back into the logging MDC while the work runs, so the log lines a
+ * consumer writes carry the trace id of the request that caused the event — minutes later, on another thread,
+ * possibly in another process. That is the only thing tying the two halves of an asynchronous system together
+ * in a log.
  */
 @Component
 public class EventConsumers {
@@ -38,6 +45,9 @@ public class EventConsumers {
 
     /** @return true when the work ran, false when this event had already been handled by the group */
     public boolean handleOnce(String consumerGroup, EventEnvelope envelope, Consumer<EventEnvelope> work) {
+        if (envelope.correlationId() != null) {
+            MDC.put(CorrelationId.MDC_KEY, envelope.correlationId());
+        }
         try {
             runner.inTransaction(() -> {
                 processedEvents.claim(consumerGroup, java.util.UUID.fromString(envelope.eventId()));
@@ -52,6 +62,8 @@ public class EventConsumers {
                 return false;
             }
             throw e;
+        } finally {
+            MDC.remove(CorrelationId.MDC_KEY);
         }
     }
 }

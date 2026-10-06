@@ -109,12 +109,13 @@ function DeliveryCard({
   busy: boolean
   onReport: (status: OrderStatus) => void
 }) {
-  // Only the transitions the server accepts from this status are offered.
+  // Only the transitions the state machine accepts from this status are offered: a delivery goes
+  // ASSIGNED -> PICKED_UP -> IN_TRANSIT -> DELIVERED, and can fail once it has been picked up.
   const next: OrderStatus[] =
     order.status === 'ASSIGNED'
       ? ['PICKED_UP']
       : order.status === 'PICKED_UP'
-        ? ['IN_TRANSIT', 'DELIVERED', 'FAILED']
+        ? ['IN_TRANSIT', 'FAILED']
         : order.status === 'IN_TRANSIT'
           ? ['DELIVERED', 'FAILED']
           : []

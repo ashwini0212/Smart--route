@@ -103,6 +103,11 @@ smartroute:
     enabled: ${EVENTS_ENABLED:true}
     relay-interval: ${EVENTS_RELAY_INTERVAL:500ms}
     keep-published: ${EVENTS_KEEP_PUBLISHED:7d}
+  metrics:
+    # The domain gauges (orders waiting, deliveries active, drivers available, outbox depth) are
+    # recomputed on this timer rather than inside a Prometheus scrape, so the database cost does not
+    # depend on how many collectors are scraping. A gauge can be up to this stale.
+    sample-interval: ${METRICS_SAMPLE_INTERVAL:30s}
   seed:
     # Password for the demo logins created by the "seed" profile; demo users are skipped when empty.
     demo-password: ${DEMO_USER_PASSWORD:}
@@ -122,8 +127,8 @@ management:
   endpoints:
     web:
       exposure:
-        # Only health and info are public. Metrics are exposed in Phase 12, behind auth.
-        include: health,info
+        # health and info are public; metrics and prometheus require an ADMIN token (see SecurityConfig).
+        include: health,info,metrics,prometheus
   endpoint:
     health:
       # /actuator/health/liveness and /actuator/health/readiness for Docker/Kubernetes probes.
@@ -137,6 +142,22 @@ management:
   info:
     env:
       enabled: true
+  metrics:
+    tags:
+      # Every metric carries these, so one scraper can hold several deployments apart.
+      application: smartroute
+      environment: ${DEPLOY_ENV:local}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      slo:
+        # Buckets chosen around what this API actually does: a cached route is single-digit ms, an optimize
+        # call is hundreds. Without these the histogram has no bucket where our latencies actually fall.
+        http.server.requests: 10ms,50ms,100ms,500ms,1s,5s
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 
 springdoc:
   swagger-ui:
@@ -152,5 +173,12 @@ info:
 
 logging:
   pattern:
-    # Every log line carries the request's correlation id (see CorrelationIdFilter).
-    level: "%5p [%X{traceId:-}]"
+    # Every log line carries the request's correlation id (see CorrelationIdFilter) and, once a request is
+    # authenticated, the user id (see RequestLogFilter). Never the email: a log should not hold personal data.
+    level: "%5p [%X{traceId:-}] [%X{userId:-}]"
+  # Set LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs (or logstash, or gelf) to switch the console to structured
+  # JSON, which is what a log collector wants. Left unset here because a human reading
+  # `docker compose logs` wants the plain format.
+  # structured:
+  #   format:
+  #     console: ecs

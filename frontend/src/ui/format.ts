@@ -72,10 +72,10 @@ export function driverStatusTone(status: DriverStatus): Tone {
   switch (status) {
     case 'AVAILABLE':
       return 'success'
-    case 'BUSY':
+    case 'ON_DELIVERY':
       return 'info'
-    case 'OFFLINE':
-      return 'danger'
+    case 'ON_BREAK':
+      return 'warning'
     default:
       return 'neutral'
   }

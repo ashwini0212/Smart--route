@@ -8,7 +8,7 @@ import { useLiveStream } from '../hooks/useLiveStream'
 import { Badge, Button, Card, Cell, EmptyState, ErrorState, Field, Loading, PageHeader, Pagination, Select, Table } from '../ui'
 import { coordinates, driverStatusTone, humanize, relative } from '../ui/format'
 
-const STATUSES: DriverStatus[] = ['OFF_SHIFT', 'AVAILABLE', 'BUSY', 'OFFLINE']
+const STATUSES: DriverStatus[] = ['OFFLINE', 'AVAILABLE', 'ON_DELIVERY', 'ON_BREAK']
 
 export function DriversPage() {
   const { user } = useAuth()

@@ -1,8 +1,9 @@
 import { Suspense, lazy } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import { AppLayout } from './AppLayout'
 import { RequireAuth } from './RequireAuth'
 import { AdminPage } from '../pages/AdminPage'
+import { AnalyticsPage } from '../pages/AnalyticsPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { DeliveriesPage } from '../pages/DeliveriesPage'
 import { DriversPage } from '../pages/DriversPage'
@@ -72,8 +73,7 @@ export function App() {
             </RequireAuth>
           }
         />
-        {/* Analytics arrives in Phase 12 with the endpoints behind it; there is nothing to show yet. */}
-        <Route path="analytics" element={<Navigate to="/" replace />} />
+        <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="*" element={<Card title="Page not found">That address does not exist in SmartRoute.</Card>} />
       </Route>
     </Routes>

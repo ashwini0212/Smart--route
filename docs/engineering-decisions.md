@@ -341,3 +341,33 @@ Each entry: **Decision**, **Reason**, **Alternative**, **Tradeoff**. New entries
 - **Reason:** They have different failure modes. A query can be retried, cached and invalidated; a frame cannot be asked for again, so its rules — newest wins, cap the lists, one alert per order — live in one testable function rather than inside a component.
 - **Alternative:** One global store (Redux or similar) for both: more ceremony, and it would still need both sets of rules; putting live frames into the query cache (every frame would invalidate something).
 - **Tradeoff:** Two sources on one screen, which the Drivers page has to reconcile explicitly (the streamed position wins over the loaded row). `retry: 0` means a genuinely flaky network shows an error where a retry would have recovered.
+
+## ED-58 Every analytics number travels with the sentence that defines it (Phase 12)
+- **Decision:** Each analytics response ends with a `definitions` list of plain-English sentences, written next to the query that produces the numbers, and the page prints them under the card they belong to.
+- **Reason:** "On-time rate" means whatever the SQL says it means, and only the SQL knows its denominator is the deliveries that had a window at all. A percentage without its definition cannot be argued with, and a definition kept in the frontend drifts from the query the first time the query changes.
+- **Alternative:** Documenting the definitions in the README or the OpenAPI description (true until the query changes, and not where the number is read); tooltips written in the frontend (the same drift, one layer further away); no definitions, trusting the reader.
+- **Tradeoff:** The response is larger and the same sentences travel on every request, and a changed query means editing prose in a Java file rather than only SQL.
+
+## ED-59 A delivery is attributed to the driver on the order, not to its assignment rows (Phase 12)
+- **Decision:** The fleet and ETA queries count a completion once, against `delivery_order.driver_id`, and pick the one assignment that was in force with a correlated `ORDER BY created_at DESC, id DESC LIMIT 1`.
+- **Reason:** Reassignment and auto-dispatch retries leave several `assignment` rows per order (1,953 rows for 388 orders in the demo database). Joining `assignment` to `order_status_history` multiplied every delivery by its assignment count, which reported a driver with 24 deliveries on a day the whole fleet delivered 45. The bug was invisible against test fixtures, where each order is assigned once.
+- **Alternative:** `COUNT(DISTINCT order_id)` (fixes the count, leaves the per-order duration and ETA joins wrong); a `DISTINCT ON (order_id)` subquery (PostgreSQL-specific, and still needs the tie-break); recording the delivering driver on the status-history row (a schema change that would not fix the rows already written).
+- **Tradeoff:** The queries are longer, each one carries a CTE and a correlated subquery, and they now depend on `delivery_order.driver_id` being set — which the regression test asserts, and which the test fixture had to start doing before two of its own assertions were honest.
+
+## ED-60 Predicted-against-actual is reported as an upper bound, not as accuracy (Phase 12)
+- **Decision:** `/api/analytics/eta-accuracy` compares the ETA recorded at assignment with the time until the driver reported `PICKED_UP`, and its definitions say the difference is an upper bound on the routing error.
+- **Reason:** The recorded ETA is travel time from the driver's position to the pickup. The measured interval also contains finishing earlier deliveries, loading and waiting, none of which the router predicted. Calling that difference "ETA accuracy" would blame the algorithm for the warehouse.
+- **Alternative:** Comparing against a route recomputed at pickup time (a different number, measuring drift rather than the prediction made); timing from a dedicated "driver started moving" event (honest, but no such event exists); not reporting it at all.
+- **Tradeoff:** The headline number is pessimistic, and with the simulators on it describes the simulator rather than a real fleet — which the definitions also say.
+
+## ED-61 Domain gauges are sampled on a timer, not computed per scrape (Phase 12)
+- **Decision:** `DomainMetrics.sample()` runs every 30 s (`smartroute.metrics.sample-interval`) and stores the values the Micrometer gauges read.
+- **Reason:** A gauge whose lambda runs `count(*)` hands control of the database load to whoever scrapes the endpoint: two Prometheus servers and a curious operator would triple five aggregate queries. The timer makes the cost fixed and known.
+- **Alternative:** Computing in the gauge lambda (simple, load decided by the scraper); maintaining counters in the write paths (exact and free to read, but every path that changes a status has to remember to adjust them, and a missed one is silently wrong forever).
+- **Tradeoff:** A gauge can be up to one interval stale, so these are not the numbers to alert on for a fast-moving condition; they describe depth, not edges.
+
+## ED-62 The metrics endpoint is admin-only; health stays public (Phase 12)
+- **Decision:** `/actuator/prometheus` and `/actuator/metrics/**` require `ROLE_ADMIN`; `/actuator/health` and `/actuator/info` stay open.
+- **Reason:** Metrics are not secrets, but together they are an inventory: order volume, fleet size, every URI template in the application, outbox depth, which endpoints fail. Probes, on the other hand, have to answer before anything is authenticated.
+- **Alternative:** Leaving metrics open (normal inside a private network, wrong for a service with a public ingress); a second management port (right answer in a cluster, more than this compose file should pretend to be); a shared scrape token (another credential to store).
+- **Tradeoff:** A Prometheus server needs an admin JWT to scrape, which is awkward in exactly the way a separate management port exists to avoid.

@@ -71,6 +71,9 @@ class SecurityConfig {
                                 "geolocation=(), camera=(), microphone=()")))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
+                        // Metrics name internal endpoints and show load; a scraper gets an admin token for them.
+                        .requestMatchers("/actuator/prometheus", "/actuator/metrics", "/actuator/metrics/**")
+                        .hasRole("ADMIN")
                         .requestMatchers("/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/refresh", "/api/auth/logout").permitAll()
                         // Spring's error page: lets errors from public endpoints render instead of becoming 401.
