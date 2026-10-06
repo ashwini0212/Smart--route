@@ -10,6 +10,8 @@ import org.springframework.stereotype.Component;
 @Component("access")
 public class Access {
 
+    /** Any logged-in user, whatever the role. */
+    public static final String ANY_USER = "isAuthenticated()";
     public static final String ADMIN = "hasRole('ADMIN')";
     /** People who run operations: create and change orders, manage driver availability. */
     public static final String STAFF = "hasAnyRole('ADMIN', 'DISPATCHER')";

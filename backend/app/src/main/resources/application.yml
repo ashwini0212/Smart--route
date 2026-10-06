@@ -20,6 +20,13 @@ spring:
           time_zone: UTC
   flyway:
     locations: classpath:db/migration
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      # Fail fast: a slow or missing cache must not slow every route request down.
+      timeout: 250ms
+      connect-timeout: 250ms
 
 smartroute:
   security:
@@ -34,6 +41,11 @@ smartroute:
     bootstrap-admin:
       email: ${ADMIN_EMAIL:}
       password: ${ADMIN_PASSWORD:}
+  routing:
+    # Folder with nodes.csv/edges.csv (scripts/osm). Empty: generate the synthetic city.
+    dataset-directory: ${ROAD_NETWORK_DIR:}
+    max-snap-distance-meters: 300
+    cache-ttl: 10m
   seed:
     # Password for the demo logins created by the "seed" profile; demo users are skipped when empty.
     demo-password: ${DEMO_USER_PASSWORD:}
@@ -60,6 +72,10 @@ management:
       # /actuator/health/liveness and /actuator/health/readiness for Docker/Kubernetes probes.
       probes:
         enabled: true
+      group:
+        # Redis is only a cache, so its outage must not take the app out of the load balancer.
+        readiness:
+          include: readinessState,db
       show-details: never
   info:
     env:

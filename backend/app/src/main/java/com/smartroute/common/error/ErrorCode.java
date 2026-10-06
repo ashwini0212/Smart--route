@@ -14,6 +14,10 @@ public enum ErrorCode {
     CONCURRENT_MODIFICATION(HttpStatus.CONFLICT),
     INVALID_STATE_TRANSITION(HttpStatus.CONFLICT),
     BUSINESS_RULE_VIOLATION(HttpStatus.UNPROCESSABLE_CONTENT),
+    /** A coordinate is too far from any road of the loaded network to be snapped to it. */
+    LOCATION_OFF_NETWORK(HttpStatus.UNPROCESSABLE_CONTENT),
+    /** Both points are on the network but no road connects them in the travel direction. */
+    NO_ROUTE(HttpStatus.UNPROCESSABLE_CONTENT),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR);
 

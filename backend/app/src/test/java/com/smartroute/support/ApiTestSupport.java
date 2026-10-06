@@ -2,8 +2,11 @@ package com.smartroute.support;
 
 import com.smartroute.auth.LoginRateLimiter;
 import com.smartroute.common.security.Role;
+import com.smartroute.routing.RoadNetworkProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -11,6 +14,8 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+
+import java.util.Map;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -38,12 +43,24 @@ public abstract class ApiTestSupport {
     @Autowired
     private LoginRateLimiter loginRateLimiter;
 
+    @Autowired
+    private StringRedisTemplate redis;
+
+    @Autowired
+    private RoadNetworkProvider roadNetwork;
+
     protected String adminToken;
 
     @BeforeEach
     void cleanDatabase() {
         cleaner.clean();
         loginRateLimiter.reset();
+        // Shared singletons outlive a test: start every test with an empty cache and free-flow traffic.
+        redis.execute((RedisCallback<Object>) connection -> {
+            connection.serverCommands().flushAll();
+            return null;
+        });
+        roadNetwork.replaceTraffic(Map.of());
         adminToken = users.token(Role.ADMIN);
     }
 
