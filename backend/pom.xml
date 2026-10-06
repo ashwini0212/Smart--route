@@ -26,6 +26,8 @@
         <module>algorithms</module>
         <!-- Spring Boot application (REST API, persistence, messaging). -->
         <module>app</module>
+        <!-- JMH benchmarks; compiled in CI, run on demand. -->
+        <module>benchmarks</module>
     </modules>
 
     <properties>
