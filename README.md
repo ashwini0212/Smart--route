@@ -2,9 +2,9 @@
 
 A logistics platform that assigns delivery orders to drivers, computes shortest and fastest routes on a road graph, sequences multi-stop deliveries, and streams driver movement to a dispatcher dashboard.
 
-> **Project status: Phase 10 of 15.** Foundation, the graph algorithm core, road-data import, snapping, benchmarks, the order/fleet/warehouse domain on PostgreSQL, login with role-based access, the routing API with a Redis cache, driver assignment, multi-stop optimization, domain events on Kafka and live tracking (positions, a server-sent event stream, delay alerts, recalculation on traffic changes) exist. The dispatcher dashboard, observability and the optional assistant are built in later phases; see [the plan](docs/phase-0-plan.md). This README only describes what exists today.
+> **Project status: Phase 11 of 15.** Foundation, the graph algorithm core, road-data import, snapping, benchmarks, the order/fleet/warehouse domain on PostgreSQL, login with role-based access, the routing API with a Redis cache, driver assignment, multi-stop optimization, domain events on Kafka, live tracking (positions, a server-sent event stream, delay alerts, recalculation on traffic changes) and the dispatcher dashboard exist. Observability, analytics and the optional assistant are built in later phases; see [the plan](docs/phase-0-plan.md). This README only describes what exists today.
 
-![Phase 1 frontend shell](docs/images/phase-1-shell.png)
+![The dispatcher dashboard](docs/images/phase-11-dashboard.png)
 
 ## Problem
 
@@ -22,7 +22,7 @@ Delivery companies continuously decide which driver takes an order, which route 
 | Live tracking | Driver positions kept in a Redis read model fed by the Kafka stream (rebuildable, falls back to the database); a server-sent event stream at `/api/tracking/stream` that drops clients which cannot keep up; deliveries predicted to miss their window raised as alerts (threshold and growth suppression, **heuristic** — it is the sequencer's prediction, not a forecast); routes reported as recalculated when the order or duration changes, immediately after a traffic change. See [Phase 10](docs/phases/phase-10-live-tracking.md) |
 | Simulators | **[SIMULATION]** Optional, off by default: drivers moved along real roads towards their drop, and random traffic jams. Every simulated position is labelled `SIMULATION` through the event payload, the read model and the stream; `/api/simulation/status` says what is running. Nothing simulated is used as a measurement. See [Phase 10](docs/phases/phase-10-live-tracking.md) |
 | Security | JWT login with rotating refresh tokens (HttpOnly cookie, reuse detection), BCrypt, four roles enforced on every endpoint, login rate limiting, CORS allow-list, security headers. See [Phase 5](docs/phases/phase-5-security.md) |
-| Frontend | React + TypeScript + Vite + Tailwind shell that shows live backend health, 5 tests (the dispatcher dashboard is Phase 11) |
+| Frontend | React + TypeScript + Vite + Tailwind dashboard: login, fleet dashboard, live map (Leaflet, fed by the event stream), orders with filters and creation, order detail with ranked driver candidates and one-click assign, drivers, vehicles, route planner, a driver's own deliveries, the event log and an admin page; loading, empty and error states everywhere, server-side validation surfaced per field, and every heuristic labelled where it is read; 56 tests. See [Phase 11](docs/phases/phase-11-frontend.md) |
 | Infrastructure | `docker compose up` starts PostgreSQL, Redis, Kafka (KRaft), backend and frontend with health-checked startup order |
 | CI | GitHub Actions: backend tests, frontend lint/test/build, Docker image build |
 | Road data | OSM import script (tested; real extract not yet committed, see [data/road-network](data/road-network/README.md)), CSV loader, largest-SCC cleanup, k-d tree nearest-node snapping. See [Phase 3](docs/phases/phase-3-road-network-benchmarks.md) |
@@ -117,6 +117,8 @@ Domain events are not instant and are not claimed to be: from the commit that ch
 Live tracking, measured end to end (position recorded → frame read by a browser client): p50 122 ms / p95 219 ms with the relay polling every 50 ms, p50 530 ms / p95 878 ms at the default 500 ms. The delay is the outbox relay's interval, not Kafka, Redis or SSE — half a second behind by choice, which is why nothing here is called "real-time". The same measurement found a bug: with Spring's default single scheduler thread, a *faster* relay made the map worse (p95 5.5 s, worst case 29 s) because the relay, the tracking sweep, the heartbeat and the simulators shared one thread; `SCHEDULING_THREADS` now defaults to 4. The delay/recalculation sweep costs ~35–55 ms per driver (1.6–2.6 s for 48 drivers) and will not scale to hundreds of active drivers on one instance. Runs and the full reading: [Phase 10](docs/phases/phase-10-live-tracking.md#step-6-measurements).
 
 Through the HTTP API (one sequential client, docker compose on the same VM, 300 random trips): a computed fastest route takes p50 12 ms / p95 19 ms including the history write; a cached one p50 9 ms / p95 15 ms. Most of that is request overhead, not routing (a trivial GET is p50 4 ms here). Details and the honest reading of these numbers: [Phase 6](docs/phases/phase-6-routing-api.md#step-6-measurements).
+
+The dashboard was also driven in a real browser against the running stack: 124 driver markers on the live map with the stream open, A* and Held-Karp results in the planner, and the delay sweep run from the admin page. Map tiles come from OpenStreetMap and need outbound access to the tile server; routing itself runs on the configured road graph, which is the synthetic city unless a real dataset is loaded.
 
 ## Engineering decisions
 

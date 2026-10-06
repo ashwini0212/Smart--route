@@ -305,3 +305,39 @@ Each entry: **Decision**, **Reason**, **Alternative**, **Tradeoff**. New entries
 - **Reason:** Spring's scheduler runs one thread by default, shared by the outbox relay, the 15 s tracking sweep, the SSE heartbeat and both simulators. Measuring the live stream found the consequence: shortening the relay interval from 500 ms to 50 ms made the map *worse* (p95 1.9 s → 5.5 s, worst case 29 s) because the faster relay only competed for that one thread more often. With four threads the same configuration gives p50 122 ms / p95 219 ms.
 - **Alternative:** Leaving the default and documenting the interaction (a future scheduled job would hit it again); a dedicated executor per job (more precise, more configuration than this project needs); moving the relay out of the scheduler entirely to its own thread (what to do if the relay ever needs to keep up with a high write rate).
 - **Tradeoff:** Four threads is headroom for the five jobs that exist, not a tuned number, and it does not make any single job faster — a sweep that takes 2.6 s still takes 2.6 s. Parallel scheduled jobs also means two of them can now touch the same rows at once; each sweep driver is its own transaction, which is what makes that safe.
+
+## ED-52 The access token lives in memory; the refresh token in an HttpOnly cookie (Phase 11)
+- **Decision:** The frontend keeps the access token in a module variable and restores a session on load with one call to `/api/auth/refresh`, whose cookie the browser never exposes to JavaScript.
+- **Reason:** A token in `localStorage` is readable by any script that reaches the page and survives the tab; the two halves split the risk, so the long-lived credential is unreadable by script and the readable one expires in fifteen minutes.
+- **Alternative:** The access token in `localStorage` (survives a reload with no round trip, readable by any injected script); both tokens in cookies (then every request needs CSRF protection); no refresh at all, so a reload signs the user out.
+- **Tradeoff:** A refresh round trip on every page load, and a `loading` state the router has to wait for before deciding to redirect. A tab opened while the refresh token is expired lands on the login page, which is the correct outcome but takes one request to discover.
+
+## ED-53 A 401 is retried once, after a single shared refresh (Phase 11)
+- **Decision:** `request()` refreshes and retries once on a 401; concurrent callers share one in-flight refresh promise.
+- **Reason:** Several queries mount together and expire together. Rotating the refresh token five times would make the backend see four reused tokens and revoke the family (ED-25), signing the user out at exactly the moment the app was recovering.
+- **Alternative:** A retry per request (the revocation above); refreshing on a timer before expiry (another thing to keep in step with the server's clock); no retry, so every token expiry is visible as an error.
+- **Tradeoff:** One extra round trip on the first expired request, and a refresh failure has to be turned into "signed out" in one place rather than handled per page.
+
+## ED-54 The live stream is read with `fetch`, not `EventSource` (Phase 11)
+- **Decision:** `api/sse.ts` opens `/api/tracking/stream` with `fetch`, sends the Authorization header, and parses the frames itself. `useLiveStream` reconnects with exponential back-off to 30 s.
+- **Reason:** `EventSource` cannot send headers, and the access token is deliberately not in a cookie. The alternatives were a token in the query string, where it lands in access logs and browser history, or accepting the refresh cookie on this endpoint — which would make it the one endpoint any website could call on the user's behalf.
+- **Alternative:** `EventSource` with a token query parameter (simplest, leaks the token into logs); WebSockets with a token in the first message (a second protocol for one-way traffic); polling `/api/tracking/drivers` every few seconds (no streaming at all, and a full read per poll).
+- **Tradeoff:** The reconnection that `EventSource` provides for free is written here, and the frame parsing with it. The back-off matters because the server drops clients it cannot write to: a tight reconnect loop would be the reason a slow client never catches up.
+
+## ED-55 Roles in the client decide what is shown, never what is allowed (Phase 11)
+- **Decision:** The navigation and the route guard use the role from `/api/auth/me`; every endpoint re-checks the role on the server from the signed token.
+- **Reason:** The client's copy of the role exists so a user is not shown pages that can only answer 403. It cannot be a control, because anything the browser holds the user can change.
+- **Alternative:** No client-side role at all (a menu full of pages that fail); server-rendered navigation (a different architecture for one menu).
+- **Tradeoff:** The role list appears twice, in the route table and in the `@PreAuthorize` annotations, and nothing automatically keeps them in step. Drift makes the UI wrong, never permissive.
+
+## ED-56 Nothing on the map is interpolated, and simulated data is coloured differently (Phase 11)
+- **Decision:** A marker moves only when a position arrives; a stream position replaces a loaded one only if its timestamp is newer; `SIMULATION` positions are drawn in a different colour and labelled in the popup, with a badge in the header whenever a simulator is running.
+- **Reason:** A smoothly animated marker is a guess the viewer cannot distinguish from a measurement. On this map a marker that has not moved for ten seconds means there has been no report for ten seconds, which is the kind of thing a dispatcher needs to see. The colour carries the label through to the one place where a reader is not reading text.
+- **Alternative:** Interpolating along the computed route between reports (looks professional, invents positions); dead reckoning from the last known speed (the same problem with more code).
+- **Tradeoff:** The map looks less polished than a commercial tracker, and at the default 500 ms relay interval movement arrives in visible steps.
+
+## ED-57 Server state and live state are handled by different mechanisms (Phase 11)
+- **Decision:** Everything the server owns goes through TanStack Query (`retry: 0`, explicit refetch intervals); everything pushed over SSE goes through `useLiveStream`, whose `applyFrame` is a pure function tested on its own.
+- **Reason:** They have different failure modes. A query can be retried, cached and invalidated; a frame cannot be asked for again, so its rules — newest wins, cap the lists, one alert per order — live in one testable function rather than inside a component.
+- **Alternative:** One global store (Redux or similar) for both: more ceremony, and it would still need both sets of rules; putting live frames into the query cache (every frame would invalidate something).
+- **Tradeoff:** Two sources on one screen, which the Drivers page has to reconcile explicitly (the streamed position wins over the loaded row). `retry: 0` means a genuinely flaky network shows an error where a retry would have recovered.
