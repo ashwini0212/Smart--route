@@ -1,5 +1,6 @@
 package com.smartroute.order;
 
+import com.smartroute.common.security.Access;
 import com.smartroute.common.web.PageResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -10,6 +11,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,6 +38,7 @@ class OrderController {
     }
 
     @PostMapping
+    @PreAuthorize(Access.STAFF)
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Create an order (status CREATED, code generated)")
     OrderResponse create(@Valid @RequestBody CreateOrderRequest request) {
@@ -43,12 +46,14 @@ class OrderController {
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize(Access.STAFF_OR_VIEWER)
     @Operation(summary = "Get an order")
     OrderResponse get(@PathVariable long id) {
         return service.get(id);
     }
 
     @GetMapping
+    @PreAuthorize(Access.STAFF_OR_VIEWER)
     @Operation(summary = "Search orders by status, priority, warehouse and creation time (newest first)")
     PageResponse<OrderResponse> search(
             @RequestParam(required = false) OrderStatus status,
@@ -64,12 +69,14 @@ class OrderController {
     }
 
     @GetMapping("/{id}/history")
+    @PreAuthorize(Access.STAFF_OR_VIEWER)
     @Operation(summary = "Status history of an order, oldest first")
     List<OrderStatusChangeResponse> history(@PathVariable long id) {
         return service.history(id);
     }
 
     @PostMapping("/{id}/cancel")
+    @PreAuthorize(Access.STAFF)
     @Operation(summary = "Cancel an order that has not been picked up yet")
     OrderResponse cancel(@PathVariable long id, @Valid @RequestBody CancelOrderRequest request) {
         return service.cancel(id, request.reason());
