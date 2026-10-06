@@ -78,3 +78,21 @@ Each entry: **Decision**, **Reason**, **Alternative**, **Tradeoff**. New entries
 - **Decision:** All DFS code uses explicit stacks.
 - **Reason:** Recursive DFS overflows the JVM stack on long paths (tested with 200,000 nodes).
 - **Tradeoff:** The finishing-order DFS is less obvious to read than the recursive version.
+
+## ED-14 Road network as versioned CSV files, not database tables (Phase 3)
+- **Decision:** The graph is loaded from `data/road-network/<dataset>/{nodes,edges}.csv` into memory.
+- **Reason:** Routing never queries edges with SQL; the graph is read once at startup. Files are easy to diff, review and reproduce. PostgreSQL keeps relational, frequently changing data.
+- **Alternative:** `road_node`/`road_edge` tables (as sketched in Phase 0); PostGIS + pgRouting.
+- **Tradeoff:** Changing the road network needs a new dataset version and a restart (or reload), not an UPDATE.
+
+## ED-15 Keep only the largest strongly connected component (Phase 3)
+- **Decision:** After loading, drop every node outside the largest SCC.
+- **Reason:** Guarantees a route both ways between any two snapped points; turns "unreachable" into a load-time data-quality report.
+- **Alternative:** Keep everything and return "unreachable" at request time.
+- **Tradeoff:** A few real but badly connected streets are removed; addresses there snap to the nearest kept node.
+
+## ED-16 2-d tree for nearest-node snapping (Phase 3)
+- **Decision:** Balanced 2-d tree over projected node coordinates.
+- **Reason:** Measured ~0.7 µs per lookup vs ~6 ms for a linear scan on 40k nodes.
+- **Alternative:** Uniform grid buckets, quadtree, PostGIS KNN query.
+- **Tradeoff:** O(n) worst case on adversarial layouts; rebuild needed when the graph changes.

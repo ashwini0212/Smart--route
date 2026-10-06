@@ -2,7 +2,7 @@
 
 A logistics platform that assigns delivery orders to drivers, computes shortest and fastest routes on a road graph, sequences multi-stop deliveries, and streams driver movement to a dispatcher dashboard.
 
-> **Project status: Phase 2 of 15.** Foundation and the graph algorithm core exist. Routing APIs, assignment, Kafka events and the dashboard are built in later phases; see [the plan](docs/phase-0-plan.md). This README only describes what exists today.
+> **Project status: Phase 3 of 15.** Foundation, the graph algorithm core, road-data import, snapping and benchmarks exist. Routing APIs, assignment, Kafka events and the dashboard are built in later phases; see [the plan](docs/phase-0-plan.md). This README only describes what exists today.
 
 ![Phase 1 frontend shell](docs/images/phase-1-shell.png)
 
@@ -18,6 +18,8 @@ Delivery companies continuously decide which driver takes an order, which route 
 | Frontend | React + TypeScript + Vite + Tailwind shell that shows live backend health, 5 tests |
 | Infrastructure | `docker compose up` starts PostgreSQL, Redis, Kafka (KRaft), backend and frontend with health-checked startup order |
 | CI | GitHub Actions: backend tests, frontend lint/test/build, Docker image build |
+| Road data | OSM import script (tested; real extract not yet committed, see [data/road-network](data/road-network/README.md)), CSV loader, largest-SCC cleanup, k-d tree nearest-node snapping. See [Phase 3](docs/phases/phase-3-road-network-benchmarks.md) |
+| Benchmarks | JMH suite with [real results](docs/phases/phase-3-road-network-benchmarks.md#step-6-benchmarks-real-jmh-results) |
 | Algorithms | Adjacency-list graph, BFS, iterative DFS, Kosaraju SCC, Dijkstra (point-to-point, one-to-many), A* with haversine heuristics, deterministic synthetic city generator; 57 unit tests. See [Phase 2](docs/phases/phase-2-graph-core.md) |
 
 PostgreSQL, Redis and Kafka are running but not yet used by the application. They are connected in Phases 4, 6 and 9.
@@ -32,6 +34,8 @@ Java 21, Spring Boot 4, Maven · PostgreSQL 17 · Redis 8 · Apache Kafka 4 (KRa
 backend/
   algorithms/   pure Java algorithms module (no Spring dependency, enforced by the build)
   app/          Spring Boot application
+  benchmarks/   JMH benchmarks for the algorithms
+data/           road-network datasets
 frontend/       React dashboard
 docs/           plan, engineering decisions, per-phase notes
 scripts/        data preparation scripts (later phases)
@@ -66,6 +70,7 @@ cd frontend && npm install && npm run dev         # UI on :5173, proxies /api an
 ```bash
 cd backend && ./mvnw verify      # all backend tests
 cd frontend && npm test          # frontend tests
+python3 -m unittest discover -s scripts/osm   # data script tests
 ```
 
 ## Algorithms
@@ -76,6 +81,11 @@ cd frontend && npm test          # frontend tests
 | Iterative DFS + Kosaraju SCC | Find nodes cut off by one-way streets | O(V + E) | O(V + E) |
 | Dijkstra (binary heap, lazy deletion) | Shortest / fastest route, one-to-many ETAs | O((V + E) log V) | O(V + E) |
 | A* (haversine heuristic) | Faster point-to-point route, same optimal cost | O((V + E) log V) worst case | O(V + E) |
+| 2-d tree | Snap a GPS point to the nearest road node | O(log V) average query | O(V) |
+
+## Performance
+
+Measured with JMH on a 4-vCPU cloud VM (synthetic 10,000-node city): a local route takes ~0.06 ms, a cross-city route ~1–2 ms; A* is up to 1.8× faster than Dijkstra on a 40k-node city; nearest-node lookup takes ~0.7 µs vs ~6 ms for a linear scan. Full tables, method and caveats: [Phase 3 benchmarks](docs/phases/phase-3-road-network-benchmarks.md#step-6-benchmarks-real-jmh-results).
 
 ## Engineering decisions
 
