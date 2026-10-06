@@ -13,8 +13,10 @@ function event(id: number): SystemEventResponse {
     eventVersion: 1,
     aggregateType: 'order',
     aggregateId: '42',
+    topic: 'smartroute.order.created',
+    correlationId: 'corr-1',
     summary: 'Order ORD-000042 created',
-    payload: { orderId: 42 },
+    payload: '{"orderId":42}',
     occurredAt: '2026-10-06T11:59:00Z',
     recordedAt: '2026-10-06T11:59:01Z',
   }

@@ -141,8 +141,8 @@ export function AdminPage() {
             </div>
             {outbox.data && (
               <p className="text-xs text-slate-500">
-                Outbox: {outbox.data.pending.toLocaleString()} pending, {outbox.data.published.toLocaleString()}{' '}
-                published.{' '}
+                Outbox: {outbox.data.pending.toLocaleString()} pending, about{' '}
+                {outbox.data.publishedEstimate.toLocaleString()} published (an estimate from table statistics).{' '}
                 {outbox.data.pending > 100
                   ? 'A pending count this high means the relay is behind.'
                   : 'The relay is keeping up.'}
