@@ -1,5 +1,10 @@
 package com.smartroute.order;
 
+import com.smartroute.fleet.DriverRequest;
+import com.smartroute.fleet.DriverService;
+import com.smartroute.fleet.VehicleRequest;
+import com.smartroute.fleet.VehicleService;
+import com.smartroute.fleet.VehicleType;
 import com.smartroute.support.DatabaseCleaner;
 import com.smartroute.support.IntegrationTest;
 import com.smartroute.warehouse.WarehouseRequest;
@@ -10,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.OptimisticLockingFailureException;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -31,6 +37,12 @@ class OrderConcurrencyTest {
     private WarehouseService warehouses;
 
     @Autowired
+    private DriverService drivers;
+
+    @Autowired
+    private VehicleService vehicles;
+
+    @Autowired
     private DatabaseCleaner cleaner;
 
     @BeforeEach
@@ -44,10 +56,14 @@ class OrderConcurrencyTest {
         long id = service.create(new CreateOrderRequest(warehouseId, "C K", "addr", 12.95, 77.6,
                 OrderPriority.NORMAL, BigDecimal.ONE, new BigDecimal("0.010"), null, null, null)).id();
 
+        long vehicleId = vehicles.create(new VehicleRequest("KA01-V-0001", VehicleType.VAN,
+                new BigDecimal("600"), new BigDecimal("4"))).id();
+        long driverId = drivers.create(new DriverRequest("D K", "+91 90000 00001", warehouseId, vehicleId)).id();
+
         DeliveryOrder firstCopy = repository.findById(id).orElseThrow();   // both "requests" read version 0
         DeliveryOrder secondCopy = repository.findById(id).orElseThrow();
 
-        firstCopy.transitionTo(OrderStatus.ASSIGNED);
+        firstCopy.assignTo(driverId, Instant.now());
         repository.saveAndFlush(firstCopy);                                 // version becomes 1
 
         secondCopy.transitionTo(OrderStatus.CANCELLED);
