@@ -76,7 +76,7 @@ Each shortest/fastest response gets an id and is stored with its path as a `DOUB
 
 New error codes (422): `LOCATION_OFF_NETWORK` (message format: "Start (lat, lon) is N m from the nearest road; the limit is 300 m") and `NO_ROUTE`.
 
-## STEP 5: Tests (234 total, 29 new)
+## STEP 5: Tests (235 total, 30 new)
 - `AlternativeRoutesTest` (8): optimal first, stretch and overlap limits hold, time mode, no alternative on a single road, too-long detours rejected, unreachable, same node, parameter validation.
 - `GraphTest` (+2): `mapEdges` leaves the original untouched; endpoints can't change.
 - `RoadNetworkProviderTest` (5): synthetic load, new version per update, old snapshot unchanged, fingerprint depends on content, multiplier 1 = no traffic, invalid multipliers/segments rejected.

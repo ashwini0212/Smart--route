@@ -14,7 +14,7 @@ Delivery companies continuously decide which driver takes an order, which route 
 
 | Area | State |
 |---|---|
-| Backend | Spring Boot 4 modular monolith: warehouses, drivers, vehicles, orders with a status state machine and history; Flyway schema on PostgreSQL; one JSON error format with trace ids; OpenAPI docs; fictional seed data (120 drivers, 600 orders); 153 tests on real PostgreSQL and Redis (Testcontainers). See [Phase 4](docs/phases/phase-4-domain-database.md) |
+| Backend | Spring Boot 4 modular monolith: warehouses, drivers, vehicles, orders with a status state machine and history; Flyway schema on PostgreSQL; one JSON error format with trace ids; OpenAPI docs; fictional seed data (120 drivers, 600 orders); 154 tests on real PostgreSQL and Redis (Testcontainers). See [Phase 4](docs/phases/phase-4-domain-database.md) |
 | Routing API | Shortest/fastest routes (A*, optimal) and up to 3 alternatives (heuristic) between any two points, snapped to the road network; traffic multipliers with versioned network snapshots; Redis cache-aside that keeps working when Redis is down; route history. Runs on the **synthetic** city unless a real dataset is configured. See [Phase 6](docs/phases/phase-6-routing-api.md) |
 | Security | JWT login with rotating refresh tokens (HttpOnly cookie, reuse detection), BCrypt, four roles enforced on every endpoint, login rate limiting, CORS allow-list, security headers. See [Phase 5](docs/phases/phase-5-security.md) |
 | Frontend | React + TypeScript + Vite + Tailwind shell that shows live backend health, 5 tests |
