@@ -2,7 +2,7 @@
 
 A logistics platform that assigns delivery orders to drivers, computes shortest and fastest routes on a road graph, sequences multi-stop deliveries, and streams driver movement to a dispatcher dashboard.
 
-> **Project status: Phase 3 of 15.** Foundation, the graph algorithm core, road-data import, snapping and benchmarks exist. Routing APIs, assignment, Kafka events and the dashboard are built in later phases; see [the plan](docs/phase-0-plan.md). This README only describes what exists today.
+> **Project status: Phase 4 of 15.** Foundation, the graph algorithm core, road-data import, snapping, benchmarks and the order/fleet/warehouse domain on PostgreSQL exist. Login, routing APIs, assignment, Kafka events and the dashboard are built in later phases; see [the plan](docs/phase-0-plan.md). This README only describes what exists today.
 
 ![Phase 1 frontend shell](docs/images/phase-1-shell.png)
 
@@ -14,15 +14,15 @@ Delivery companies continuously decide which driver takes an order, which route 
 
 | Area | State |
 |---|---|
-| Backend | Spring Boot 4 app in a Maven multi-module build (`algorithms` + `app`), health/readiness probes, 5 tests |
+| Backend | Spring Boot 4 modular monolith: warehouses, drivers, vehicles, orders with a status state machine and history; Flyway schema on PostgreSQL; one JSON error format with trace ids; OpenAPI docs; fictional seed data (120 drivers, 600 orders); 56 tests on real PostgreSQL (Testcontainers). See [Phase 4](docs/phases/phase-4-domain-database.md) |
 | Frontend | React + TypeScript + Vite + Tailwind shell that shows live backend health, 5 tests |
 | Infrastructure | `docker compose up` starts PostgreSQL, Redis, Kafka (KRaft), backend and frontend with health-checked startup order |
 | CI | GitHub Actions: backend tests, frontend lint/test/build, Docker image build |
 | Road data | OSM import script (tested; real extract not yet committed, see [data/road-network](data/road-network/README.md)), CSV loader, largest-SCC cleanup, k-d tree nearest-node snapping. See [Phase 3](docs/phases/phase-3-road-network-benchmarks.md) |
 | Benchmarks | JMH suite with [real results](docs/phases/phase-3-road-network-benchmarks.md#step-6-benchmarks-real-jmh-results) |
-| Algorithms | Adjacency-list graph, BFS, iterative DFS, Kosaraju SCC, Dijkstra (point-to-point, one-to-many), A* with haversine heuristics, deterministic synthetic city generator; 57 unit tests. See [Phase 2](docs/phases/phase-2-graph-core.md) |
+| Algorithms | Adjacency-list graph, BFS, iterative DFS, Kosaraju SCC, Dijkstra (point-to-point, one-to-many), A* with haversine heuristics, deterministic synthetic city generator; 71 unit tests. See [Phase 2](docs/phases/phase-2-graph-core.md) |
 
-PostgreSQL, Redis and Kafka are running but not yet used by the application. They are connected in Phases 4, 6 and 9.
+The API has no login yet; Phase 5 adds JWT authentication and roles. Redis and Kafka are running but not yet used; they are connected in Phases 6 and 9.
 
 ## Tech stack
 
@@ -55,20 +55,22 @@ docker compose up --build     # first build downloads dependencies
 |---|---|
 | http://localhost:3000 | Frontend |
 | http://localhost:8080/actuator/health | Backend health |
+| http://localhost:8080/swagger-ui.html | API documentation (OpenAPI) |
 
 Startup order is enforced by health checks: `postgres`, `redis`, `kafka` → `backend` → `frontend`.
 
 ### Running without Docker
 
 ```bash
-cd backend && ./mvnw spring-boot:run -pl app     # API on :8080
+docker compose up -d postgres                    # the app needs PostgreSQL
+cd backend && DB_PASSWORD=change-me-local-only SPRING_PROFILES_ACTIVE=seed ./mvnw spring-boot:run -pl app -am   # API on :8080
 cd frontend && npm install && npm run dev         # UI on :5173, proxies /api and /actuator to :8080
 ```
 
 ## Testing
 
 ```bash
-cd backend && ./mvnw verify      # all backend tests
+cd backend && ./mvnw verify      # all backend tests (needs Docker for Testcontainers)
 cd frontend && npm test          # frontend tests
 python3 -m unittest discover -s scripts/osm   # data script tests
 ```

@@ -96,3 +96,33 @@ Each entry: **Decision**, **Reason**, **Alternative**, **Tradeoff**. New entries
 - **Reason:** Measured ~0.7 µs per lookup vs ~6 ms for a linear scan on 40k nodes.
 - **Alternative:** Uniform grid buckets, quadtree, PostGIS KNN query.
 - **Tradeoff:** O(n) worst case on adversarial layouts; rebuild needed when the graph changes.
+
+## ED-17 Modules reference each other by id, not JPA relationships (Phase 4)
+- **Decision:** `DeliveryOrder.warehouseId` is a `Long`; other modules are reached through their service (`WarehouseService.requireActive`). Repositories are package-private (ArchUnit test).
+- **Reason:** No lazy-loading surprises or hidden N+1 queries; each module owns its tables and could be split out later.
+- **Alternative:** `@ManyToOne` associations across modules.
+- **Tradeoff:** Joins across modules are explicit service calls or dedicated read queries, which is more code.
+
+## ED-18 Readable codes from database sequences (Phase 4)
+- **Decision:** `DRV-000001` / `ORD-000001` come from PostgreSQL sequences.
+- **Reason:** Unique under concurrency without locks; `max + 1` races.
+- **Alternative:** UUIDs only; a counter table with row locks.
+- **Tradeoff:** Gaps appear when a transaction rolls back. Codes are identifiers, not counts, so that is fine.
+
+## ED-19 Optimistic locking on every entity (Phase 4)
+- **Decision:** `@Version` column in `BaseEntity`; a lost update returns `409 CONCURRENT_MODIFICATION`.
+- **Reason:** Conflicts on the same order are rare, and a version check costs nothing until one happens.
+- **Alternative:** `SELECT ... FOR UPDATE` everywhere.
+- **Tradeoff:** The losing client must retry. Phase 7 uses row locks where a conflict is expected (reserving driver capacity).
+
+## ED-20 Business rules as database CHECK constraints too (Phase 4)
+- **Decision:** Ranges, enums and the time-window rule are CHECK constraints in the migration, in addition to Bean Validation.
+- **Reason:** The API gives readable errors; the database guarantees no code path or manual SQL can store an impossible row.
+- **Tradeoff:** Adding an enum value needs a migration.
+
+## ED-21 Testcontainers PostgreSQL instead of H2 (Phase 4)
+- **Decision:** Integration tests use a real PostgreSQL 17 container.
+- **Reason:** Partial indexes, CHECK constraints, sequences and Flyway SQL behave exactly as in production.
+- **Alternative:** H2 in PostgreSQL mode.
+- **Tradeoff:** Tests need Docker and start in seconds instead of milliseconds; one container is shared by all tests.
+
