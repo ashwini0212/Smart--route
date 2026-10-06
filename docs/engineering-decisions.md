@@ -55,3 +55,26 @@ Each entry: **Decision**, **Reason**, **Alternative**, **Tradeoff**. New entries
 - **Reason:** Smaller attack surface; dependencies (which rarely change) sit in a lower Docker layer than application classes, so rebuilds after a code change are fast.
 - **Alternative:** Single-stage JDK image running `java -jar` as root.
 - **Tradeoff:** A more complex Dockerfile.
+
+## ED-10 Adjacency list over matrix or CSR (Phase 2)
+- **Decision:** `List<List<Edge>>` adjacency list, immutable after build.
+- **Reason:** Road graphs are sparse (≈3.6 edges per node in our synthetic city). O(V + E) memory, O(degree) neighbour iteration, readable code.
+- **Alternative:** Adjacency matrix (O(V²) memory); CSR primitive arrays (faster, cache-friendly).
+- **Tradeoff:** Object-per-edge costs more memory and cache misses than CSR. Revisit only if profiling shows routing is memory-bound.
+
+## ED-11 Dijkstra with lazy deletion on java.util.PriorityQueue (Phase 2)
+- **Decision:** Push duplicate entries and skip stale ones instead of decrease-key.
+- **Reason:** Simple, correct, uses the standard library.
+- **Alternative:** Indexed binary heap with decrease-key (heap stays O(V)); Fibonacci heap (better asymptotics, worse constants).
+- **Tradeoff:** Heap can grow to O(E) entries.
+
+## ED-12 A* requires a consistent heuristic (Phase 2)
+- **Decision:** Haversine distance (distance mode) and haversine ÷ max graph speed (time mode); both consistent.
+- **Reason:** With a consistent heuristic, the settled-set optimization stays correct and A* returns the same cost as Dijkstra (tested on 600 random pairs).
+- **Alternative:** Inflated (weighted) A*: faster but not optimal. ALT landmarks: tighter bounds, needs preprocessing.
+- **Tradeoff:** The time heuristic is weak when speeds vary a lot, so A* gains less in time mode (measured in Phase 2 doc).
+
+## ED-13 Iterative DFS (Phase 2)
+- **Decision:** All DFS code uses explicit stacks.
+- **Reason:** Recursive DFS overflows the JVM stack on long paths (tested with 200,000 nodes).
+- **Tradeoff:** The finishing-order DFS is less obvious to read than the recursive version.

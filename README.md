@@ -2,7 +2,7 @@
 
 A logistics platform that assigns delivery orders to drivers, computes shortest and fastest routes on a road graph, sequences multi-stop deliveries, and streams driver movement to a dispatcher dashboard.
 
-> **Project status: Phase 1 of 15 (foundation).** The repository skeleton, Docker stack and CI pipeline exist. Routing, assignment, Kafka events and the dashboard are built in later phases; see [the plan](docs/phase-0-plan.md). This README only describes what exists today.
+> **Project status: Phase 2 of 15.** Foundation and the graph algorithm core exist. Routing APIs, assignment, Kafka events and the dashboard are built in later phases; see [the plan](docs/phase-0-plan.md). This README only describes what exists today.
 
 ![Phase 1 frontend shell](docs/images/phase-1-shell.png)
 
@@ -10,7 +10,7 @@ A logistics platform that assigns delivery orders to drivers, computes shortest 
 
 Delivery companies continuously decide which driver takes an order, which route to drive, and in what order to visit stops, while traffic and driver availability change. SmartRoute solves these with graph algorithms (Dijkstra, A*), heaps (Top-K driver candidates), greedy assignment and dynamic programming (exact stop ordering for small inputs), on an event-driven Spring Boot backend.
 
-## What works today (Phase 1)
+## What works today
 
 | Area | State |
 |---|---|
@@ -18,6 +18,7 @@ Delivery companies continuously decide which driver takes an order, which route 
 | Frontend | React + TypeScript + Vite + Tailwind shell that shows live backend health, 5 tests |
 | Infrastructure | `docker compose up` starts PostgreSQL, Redis, Kafka (KRaft), backend and frontend with health-checked startup order |
 | CI | GitHub Actions: backend tests, frontend lint/test/build, Docker image build |
+| Algorithms | Adjacency-list graph, BFS, iterative DFS, Kosaraju SCC, Dijkstra (point-to-point, one-to-many), A* with haversine heuristics, deterministic synthetic city generator; 57 unit tests. See [Phase 2](docs/phases/phase-2-graph-core.md) |
 
 PostgreSQL, Redis and Kafka are running but not yet used by the application. They are connected in Phases 4, 6 and 9.
 
@@ -66,6 +67,15 @@ cd frontend && npm install && npm run dev         # UI on :5173, proxies /api an
 cd backend && ./mvnw verify      # all backend tests
 cd frontend && npm test          # frontend tests
 ```
+
+## Algorithms
+
+| Algorithm | Used for | Time | Space |
+|---|---|---|---|
+| BFS | Fewest-hop path, k-hop neighbourhood | O(V + E) | O(V) |
+| Iterative DFS + Kosaraju SCC | Find nodes cut off by one-way streets | O(V + E) | O(V + E) |
+| Dijkstra (binary heap, lazy deletion) | Shortest / fastest route, one-to-many ETAs | O((V + E) log V) | O(V + E) |
+| A* (haversine heuristic) | Faster point-to-point route, same optimal cost | O((V + E) log V) worst case | O(V + E) |
 
 ## Engineering decisions
 
