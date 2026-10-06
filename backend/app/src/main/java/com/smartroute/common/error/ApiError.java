@@ -1,6 +1,7 @@
 package com.smartroute.common.error;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.smartroute.common.web.CorrelationId;
 
 import java.time.Instant;
 import java.util.List;
@@ -20,6 +21,12 @@ public record ApiError(
         String path,
         String traceId,
         List<FieldError> fieldErrors) {
+
+    /** An error without field details, for code outside the MVC exception handler (e.g. security filters). */
+    public static ApiError of(ErrorCode code, String message, String path) {
+        return new ApiError(Instant.now(), code.status().value(), code.name(), message, path,
+                CorrelationId.current(), List.of());
+    }
 
     public record FieldError(String field, String message) {
     }

@@ -1,5 +1,6 @@
 package com.smartroute.common.error;
 
+import com.smartroute.common.ratelimit.RateLimitExceededException;
 import com.smartroute.common.web.CorrelationId;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -7,7 +8,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -34,6 +38,25 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ApiException.class)
     ResponseEntity<ApiError> handleApi(ApiException e, HttpServletRequest request) {
         return respond(e.code(), e.getMessage(), request, List.of());
+    }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    ResponseEntity<ApiError> handleRateLimit(RateLimitExceededException e, HttpServletRequest request) {
+        ResponseEntity<ApiError> response = respond(e.code(), e.getMessage(), request, List.of());
+        return ResponseEntity.status(response.getStatusCode())
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(e.retryAfterSeconds()))
+                .body(response.getBody());
+    }
+
+    /** {@code @PreAuthorize} failures happen inside the controller call, so they arrive here, not at the filter. */
+    @ExceptionHandler(AccessDeniedException.class)
+    ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException e, HttpServletRequest request) {
+        return respond(ErrorCode.FORBIDDEN, "You do not have permission to do this", request, List.of());
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    ResponseEntity<ApiError> handleAuthentication(AuthenticationException e, HttpServletRequest request) {
+        return respond(ErrorCode.UNAUTHORIZED, "Authentication is required", request, List.of());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
