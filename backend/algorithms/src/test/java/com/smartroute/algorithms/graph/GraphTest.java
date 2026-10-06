@@ -82,4 +82,20 @@ class GraphTest {
         assertThatThrownBy(() -> graph.outgoing(1)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> graph.node(-1)).isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void mapEdgesBuildsANewGraphAndLeavesTheOriginalUntouched() {
+        Graph original = TestGraphs.diamond();
+        Graph slower = original.mapEdges(e -> new Edge(e.from(), e.to(), e.distanceMeters(), e.travelTimeSeconds() * 2));
+        assertThat(slower.outgoing(0).getFirst().travelTimeSeconds()).isEqualTo(4);
+        assertThat(original.outgoing(0).getFirst().travelTimeSeconds()).isEqualTo(2);
+        assertThat(slower.edgeCount()).isEqualTo(original.edgeCount());
+    }
+
+    @Test
+    void mapEdgesRejectsChangedEndpoints() {
+        assertThatThrownBy(() -> TestGraphs.diamond()
+                        .mapEdges(e -> new Edge(e.to(), e.from(), e.distanceMeters(), e.travelTimeSeconds())))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

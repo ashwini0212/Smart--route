@@ -3,6 +3,7 @@ package com.smartroute.algorithms.graph;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.UnaryOperator;
 
 /**
  * Immutable directed graph stored as an adjacency list.
@@ -72,6 +73,25 @@ public final class Graph {
         for (List<Edge> edges : outgoing) {
             for (Edge edge : edges) {
                 builder.addEdge(edge.reversed());
+            }
+        }
+        return builder.build();
+    }
+
+    /**
+     * Same nodes, every edge replaced by {@code transform(edge)} (which must keep its endpoints).
+     * This is how traffic is applied: copy-on-write into a new graph, never mutation. O(V + E).
+     */
+    public Graph mapEdges(UnaryOperator<Edge> transform) {
+        Builder builder = builder();
+        nodes.forEach(n -> builder.addNode(n.latitude(), n.longitude()));
+        for (List<Edge> edges : outgoing) {
+            for (Edge edge : edges) {
+                Edge mapped = transform.apply(edge);
+                if (mapped.from() != edge.from() || mapped.to() != edge.to()) {
+                    throw new IllegalArgumentException("mapEdges must not change an edge's endpoints");
+                }
+                builder.addEdge(mapped);
             }
         }
         return builder.build();
