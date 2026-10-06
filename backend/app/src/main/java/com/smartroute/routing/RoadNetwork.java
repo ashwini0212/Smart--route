@@ -19,6 +19,8 @@ import java.util.Map;
  * @param source      human-readable origin, e.g. "synthetic 100x100 grid (seed 42)"
  * @param synthetic   true when the graph is generated, not real map data
  * @param traffic     current multipliers by edge (from, to); empty means free-flow
+ * @param reversed    the same graph with every edge flipped (same travel times), for "how long from every
+ *                    node <em>to</em> X" searches such as driver ETAs to a pickup
  */
 public record RoadNetwork(
         long version,
@@ -30,13 +32,14 @@ public record RoadNetwork(
         Heuristic distanceHeuristic,
         Heuristic timeHeuristic,
         Map<EdgeKey, Double> traffic,
+        Graph reversed,
         Instant builtAt) {
 
     static RoadNetwork of(long version, String fingerprint, String source, boolean synthetic, Graph graph,
                           NearestNodeIndex index, Map<EdgeKey, Double> traffic, Instant builtAt) {
         return new RoadNetwork(version, fingerprint, source, synthetic, graph, index,
                 Heuristics.straightLineDistance(graph), Heuristics.straightLineTravelTime(graph),
-                Map.copyOf(traffic), builtAt);
+                Map.copyOf(traffic), graph.reversed(), builtAt);
     }
 
     /** A directed road segment between two nodes of the network. */
