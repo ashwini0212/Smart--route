@@ -2,7 +2,7 @@
 
 A logistics platform that assigns delivery orders to drivers, computes shortest and fastest routes on a road graph, sequences multi-stop deliveries, and streams driver movement to a dispatcher dashboard.
 
-> **Project status: Phase 5 of 15.** Foundation, the graph algorithm core, road-data import, snapping, benchmarks, the order/fleet/warehouse domain on PostgreSQL, and login with role-based access exist. Routing APIs, assignment, Kafka events and the dashboard are built in later phases; see [the plan](docs/phase-0-plan.md). This README only describes what exists today.
+> **Project status: Phase 6 of 15.** Foundation, the graph algorithm core, road-data import, snapping, benchmarks, the order/fleet/warehouse domain on PostgreSQL, login with role-based access, and the routing API with a Redis cache exist. Assignment, Kafka events and the dashboard are built in later phases; see [the plan](docs/phase-0-plan.md). This README only describes what exists today.
 
 ![Phase 1 frontend shell](docs/images/phase-1-shell.png)
 
@@ -14,16 +14,17 @@ Delivery companies continuously decide which driver takes an order, which route 
 
 | Area | State |
 |---|---|
-| Backend | Spring Boot 4 modular monolith: warehouses, drivers, vehicles, orders with a status state machine and history; Flyway schema on PostgreSQL; one JSON error format with trace ids; OpenAPI docs; fictional seed data (120 drivers, 600 orders); 134 tests on real PostgreSQL (Testcontainers). See [Phase 4](docs/phases/phase-4-domain-database.md) |
+| Backend | Spring Boot 4 modular monolith: warehouses, drivers, vehicles, orders with a status state machine and history; Flyway schema on PostgreSQL; one JSON error format with trace ids; OpenAPI docs; fictional seed data (120 drivers, 600 orders); 153 tests on real PostgreSQL and Redis (Testcontainers). See [Phase 4](docs/phases/phase-4-domain-database.md) |
+| Routing API | Shortest/fastest routes (A*, optimal) and up to 3 alternatives (heuristic) between any two points, snapped to the road network; traffic multipliers with versioned network snapshots; Redis cache-aside that keeps working when Redis is down; route history. Runs on the **synthetic** city unless a real dataset is configured. See [Phase 6](docs/phases/phase-6-routing-api.md) |
 | Security | JWT login with rotating refresh tokens (HttpOnly cookie, reuse detection), BCrypt, four roles enforced on every endpoint, login rate limiting, CORS allow-list, security headers. See [Phase 5](docs/phases/phase-5-security.md) |
 | Frontend | React + TypeScript + Vite + Tailwind shell that shows live backend health, 5 tests |
 | Infrastructure | `docker compose up` starts PostgreSQL, Redis, Kafka (KRaft), backend and frontend with health-checked startup order |
 | CI | GitHub Actions: backend tests, frontend lint/test/build, Docker image build |
 | Road data | OSM import script (tested; real extract not yet committed, see [data/road-network](data/road-network/README.md)), CSV loader, largest-SCC cleanup, k-d tree nearest-node snapping. See [Phase 3](docs/phases/phase-3-road-network-benchmarks.md) |
 | Benchmarks | JMH suite with [real results](docs/phases/phase-3-road-network-benchmarks.md#step-6-benchmarks-real-jmh-results) |
-| Algorithms | Adjacency-list graph, BFS, iterative DFS, Kosaraju SCC, Dijkstra (point-to-point, one-to-many), A* with haversine heuristics, deterministic synthetic city generator; 71 unit tests. See [Phase 2](docs/phases/phase-2-graph-core.md) |
+| Algorithms | Adjacency-list graph, BFS, iterative DFS, Kosaraju SCC, Dijkstra (point-to-point, one-to-many), A* with haversine heuristics, alternative routes (penalty method), deterministic synthetic city generator; 81 unit tests. See [Phase 2](docs/phases/phase-2-graph-core.md) |
 
-Redis and Kafka are running but not yet used; they are connected in Phases 6 and 9.
+Kafka is running but not yet used; it is connected in Phase 9.
 
 ## Tech stack
 
@@ -98,6 +99,8 @@ python3 -m unittest discover -s scripts/osm   # data script tests
 ## Performance
 
 Measured with JMH on a 4-vCPU cloud VM (synthetic 10,000-node city): a local route takes ~0.06 ms, a cross-city route ~1–2 ms; A* is up to 1.8× faster than Dijkstra on a 40k-node city; nearest-node lookup takes ~0.7 µs vs ~6 ms for a linear scan. Full tables, method and caveats: [Phase 3 benchmarks](docs/phases/phase-3-road-network-benchmarks.md#step-6-benchmarks-real-jmh-results).
+
+Through the HTTP API (one sequential client, docker compose on the same VM, 300 random trips): a computed fastest route takes p50 12 ms / p95 19 ms including the history write; a cached one p50 9 ms / p95 15 ms. Most of that is request overhead, not routing (a trivial GET is p50 4 ms here). Details and the honest reading of these numbers: [Phase 6](docs/phases/phase-6-routing-api.md#step-6-measurements).
 
 ## Engineering decisions
 

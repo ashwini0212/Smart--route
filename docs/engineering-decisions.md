@@ -156,3 +156,32 @@ Each entry: **Decision**, **Reason**, **Alternative**, **Tradeoff**. New entries
 - **Reason:** Slows password guessing with no extra infrastructure; the higher IP limit avoids locking out an office behind one NAT address.
 - **Alternative:** Redis-backed limiter (correct across several app instances); account lockout (lets an attacker lock out real users).
 - **Tradeoff:** With N app instances the effective limit is N times higher. Moving to Redis is a new `RateLimiter` implementation.
+
+## ED-27 Immutable network snapshots swapped through an AtomicReference (Phase 6)
+- **Decision:** Traffic changes build a complete new graph (copy-on-write, O(V + E)) and publish it with one reference swap; each request reads the reference once.
+- **Reason:** Route searches never lock and never see a half-applied update.
+- **Alternative:** Mutable edge weights behind a read-write lock.
+- **Tradeoff:** Each update copies the whole graph (milliseconds for a city; too slow for per-second updates on a country-sized graph).
+
+## ED-28 Cache keys from snapped nodes plus a content fingerprint; expiry instead of invalidation (Phase 6)
+- **Decision:** `route:<fingerprint>:<mode>:<fromNode>:<toNode>`, TTL 10 minutes. The fingerprint is a hash of the dataset and the traffic map.
+- **Reason:** Nearby requests share entries; a traffic change produces a new fingerprint, so stale routes are never read and nothing has to be deleted. Instances with the same data share entries.
+- **Alternative:** Raw coordinates as keys (almost no hits); deleting keys on every traffic change.
+- **Tradeoff:** Old entries occupy Redis memory until their TTL ends.
+
+## ED-29 Redis is optional, with a 30-second back-off (Phase 6)
+- **Decision:** Cache errors count as misses; after an error the cache is bypassed for 30 s. Readiness ignores Redis.
+- **Reason:** Measured 0.52 s per request with Redis down before the back-off (two connection timeouts); ~35 ms after.
+- **Alternative:** Resilience4j circuit breaker (more features, another dependency).
+- **Tradeoff:** For 30 s after Redis returns, requests still skip the cache.
+
+## ED-30 Alternative routes by the penalty method, labelled heuristic (Phase 6)
+- **Decision:** Penalize edges of found routes and search again; accept routes ≤ 1.4× the optimum with ≤ 70 % overlap.
+- **Reason:** Gives genuinely different roads; Yen's k-shortest paths gives near-duplicates on a grid.
+- **Tradeoff:** No guarantee of the best k or the most diverse routes; parameters are tuned by eye on the synthetic city.
+
+## ED-31 Route history as one row with a coordinate array (Phase 6)
+- **Decision:** `route_record.path DOUBLE PRECISION[]` (flattened lat/lon) instead of a segments table.
+- **Reason:** A route is always read whole; one row per route keeps writes and reads to one statement.
+- **Alternative:** `route_segment` rows; PostGIS LINESTRING.
+- **Tradeoff:** No SQL queries over individual segments (not needed yet). The table grows with every request; a retention policy is future work.
