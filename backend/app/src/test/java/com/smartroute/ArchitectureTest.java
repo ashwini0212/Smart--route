@@ -1,0 +1,43 @@
+package com.smartroute;
+
+import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.junit.AnalyzeClasses;
+import com.tngtech.archunit.junit.ArchTest;
+import com.tngtech.archunit.lang.ArchRule;
+import org.springframework.data.repository.Repository;
+import org.springframework.web.bind.annotation.RestController;
+
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
+
+/**
+ * Module boundary rules for the modular monolith. If one fails, the build fails, so boundaries
+ * can't erode silently over time.
+ */
+@AnalyzeClasses(packages = "com.smartroute", importOptions = ImportOption.DoNotIncludeTests.class)
+class ArchitectureTest {
+
+    /** Modules (top-level packages) may depend on each other, but never in a cycle. */
+    @ArchTest
+    static final ArchRule modulesAreFreeOfCycles =
+            slices().matching("com.smartroute.(*)..").should().beFreeOfCycles();
+
+    /** Other modules must use a module's service, not reach into its tables through its repository. */
+    @ArchTest
+    static final ArchRule repositoriesArePackagePrivate =
+            classes().that().areAssignableTo(Repository.class).should().notBePublic();
+
+    /** Controllers are entry points only; nothing should call them directly. */
+    @ArchTest
+    static final ArchRule controllersAreNotDependedOn =
+            noClasses().should().dependOnClassesThat().areAnnotatedWith(RestController.class);
+
+    /** The shared kernel must not know about business modules. */
+    @ArchTest
+    static final ArchRule commonDoesNotDependOnModules =
+            noClasses().that().resideInAPackage("com.smartroute.common..")
+                    .should().dependOnClassesThat().resideInAnyPackage(
+                            "com.smartroute.order..", "com.smartroute.fleet..", "com.smartroute.warehouse..",
+                            "com.smartroute.demo..");
+}

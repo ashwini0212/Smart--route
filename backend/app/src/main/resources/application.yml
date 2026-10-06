@@ -1,6 +1,25 @@
 spring:
   application:
     name: smartroute
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/smartroute}
+    username: ${DB_USERNAME:smartroute}
+    # No default: the password must come from the environment (.env locally, a secret store in production).
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+  jpa:
+    # The schema is owned by Flyway. Hibernate only checks that entities match it.
+    hibernate:
+      ddl-auto: validate
+    # Don't keep a DB session open during view rendering; it hides lazy-loading bugs and holds connections.
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    locations: classpath:db/migration
 
 server:
   port: ${SERVER_PORT:8080}
@@ -26,8 +45,19 @@ management:
     env:
       enabled: true
 
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
 info:
   app:
     name: SmartRoute
     description: Intelligent real-time logistics and route optimization platform
     version: '@project.version@'
+
+logging:
+  pattern:
+    # Every log line carries the request's correlation id (see CorrelationIdFilter).
+    level: "%5p [%X{traceId:-}]"
