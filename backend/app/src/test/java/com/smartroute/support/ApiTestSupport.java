@@ -3,6 +3,7 @@ package com.smartroute.support;
 import com.smartroute.auth.LoginRateLimiter;
 import com.smartroute.common.security.Role;
 import com.smartroute.routing.RoadNetworkProvider;
+import com.smartroute.routing.RouteOptimizationLimiter;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisCallback;
@@ -49,12 +50,16 @@ public abstract class ApiTestSupport {
     @Autowired
     private RoadNetworkProvider roadNetwork;
 
+    @Autowired
+    private RouteOptimizationLimiter optimizationLimiter;
+
     protected String adminToken;
 
     @BeforeEach
     void cleanDatabase() {
         cleaner.clean();
         loginRateLimiter.reset();
+        optimizationLimiter.reset();
         // Shared singletons outlive a test: start every test with an empty cache and free-flow traffic.
         redis.execute((RedisCallback<Object>) connection -> {
             connection.serverCommands().flushAll();
