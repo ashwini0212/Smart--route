@@ -60,6 +60,13 @@ public class DeliveryOrder extends BaseEntity {
     @Column(name = "window_end")
     private Instant windowEnd;
 
+    /** The responsible driver while active; kept on DELIVERED/FAILED orders as a record of who had it. */
+    @Column(name = "driver_id")
+    private Long driverId;
+
+    @Column(name = "assigned_at")
+    private Instant assignedAt;
+
     protected DeliveryOrder() {
     }
 
@@ -88,6 +95,22 @@ public class DeliveryOrder extends BaseEntity {
         }
         OrderStatus previous = status;
         status = target;
+        return previous;
+    }
+
+    /** CREATED → ASSIGNED to {@code driver}. Capacity must already be reserved by the caller. */
+    OrderStatus assignTo(long driver, Instant at) {
+        OrderStatus previous = transitionTo(OrderStatus.ASSIGNED);
+        this.driverId = driver;
+        this.assignedAt = at;
+        return previous;
+    }
+
+    /** ASSIGNED → CREATED: back in the dispatch queue, no driver. */
+    OrderStatus unassign() {
+        OrderStatus previous = transitionTo(OrderStatus.CREATED);
+        this.driverId = null;
+        this.assignedAt = null;
         return previous;
     }
 
@@ -141,5 +164,13 @@ public class DeliveryOrder extends BaseEntity {
 
     public Instant getWindowEnd() {
         return windowEnd;
+    }
+
+    public Long getDriverId() {
+        return driverId;
+    }
+
+    public Instant getAssignedAt() {
+        return assignedAt;
     }
 }

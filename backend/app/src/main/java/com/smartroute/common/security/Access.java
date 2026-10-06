@@ -17,6 +17,8 @@ public class Access {
     public static final String STAFF = "hasAnyRole('ADMIN', 'DISPATCHER')";
     /** Everyone who may read operational data across the whole company. */
     public static final String STAFF_OR_VIEWER = "hasAnyRole('ADMIN', 'DISPATCHER', 'VIEWER')";
+    /** A driver login (linked to exactly one driver record). */
+    public static final String DRIVER = "hasRole('DRIVER')";
 
     /** True if the caller is a DRIVER and {@code driverId} is their own driver record. */
     public boolean isDriver(long driverId) {

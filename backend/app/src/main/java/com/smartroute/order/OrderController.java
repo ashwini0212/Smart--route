@@ -54,16 +54,17 @@ class OrderController {
 
     @GetMapping
     @PreAuthorize(Access.STAFF_OR_VIEWER)
-    @Operation(summary = "Search orders by status, priority, warehouse and creation time (newest first)")
+    @Operation(summary = "Search orders by status, priority, warehouse, driver and creation time (newest first)")
     PageResponse<OrderResponse> search(
             @RequestParam(required = false) OrderStatus status,
             @RequestParam(required = false) OrderPriority priority,
             @RequestParam(required = false) Long warehouseId,
+            @RequestParam(required = false) Long driverId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant createdFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant createdTo,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
-        OrderSearch search = new OrderSearch(status, priority, warehouseId, createdFrom, createdTo);
+        OrderSearch search = new OrderSearch(status, priority, warehouseId, driverId, createdFrom, createdTo);
         Sort newestFirst = Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
         return PageResponse.of(service.search(search, PageRequest.of(page, size, newestFirst)), o -> o);
     }
@@ -78,7 +79,14 @@ class OrderController {
     @PostMapping("/{id}/cancel")
     @PreAuthorize(Access.STAFF)
     @Operation(summary = "Cancel an order that has not been picked up yet")
-    OrderResponse cancel(@PathVariable long id, @Valid @RequestBody CancelOrderRequest request) {
+    OrderResponse cancel(@PathVariable long id, @Valid @RequestBody ReasonRequest request) {
         return service.cancel(id, request.reason());
+    }
+
+    @PostMapping("/{id}/unassign")
+    @PreAuthorize(Access.STAFF)
+    @Operation(summary = "Take an ASSIGNED order away from its driver and put it back in the dispatch queue")
+    OrderResponse unassign(@PathVariable long id, @Valid @RequestBody ReasonRequest request) {
+        return service.unassign(id, request.reason());
     }
 }

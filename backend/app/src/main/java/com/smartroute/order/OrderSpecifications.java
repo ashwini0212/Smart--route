@@ -15,6 +15,7 @@ final class OrderSpecifications {
                 equal("status", search.status()),
                 equal("priority", search.priority()),
                 equal("warehouseId", search.warehouseId()),
+                equal("driverId", search.driverId()),
                 createdFrom(search.createdFrom()),
                 createdBefore(search.createdTo()));
     }
