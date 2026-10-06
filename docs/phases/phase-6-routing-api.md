@@ -101,6 +101,8 @@ Full output: [docs/benchmarks/phase-6-route-api.txt](../benchmarks/phase-6-route
 - On a 10k-node city A* is so fast (Phase 3: ~1–2 ms cross-city) that the cache saves only ~3 ms per request. It saves more for alternatives (each is several A* runs: p95 25 → 6.6 ms) and would matter more on a real, larger map. I'm keeping it because it is cheap and correct, not because it was needed at this size.
 - What would bring the cached path under 5 ms: write history asynchronously (or make storing opt-in), and measure again in Phase 13 under concurrent load instead of one sequential client.
 
+**Phase 13's answer to that last point** (see [Phase 13](phase-13-performance.md)): on a warm JVM the computed route is p50 9.3 ms and the cached one 6.2 ms, so the cache saves about 3 ms and the 7 ms above was partly a cold JVM. Taking a request apart put 2.3 ms on A* and 3.6 ms on the cache read, the 3 KB of geometry and the history insert together. Under 8 concurrent clients the cached path serves 714 requests a second with p50 10 ms and no failures. The history write therefore stays synchronous: it costs 2-3 ms, and losing records to a queue is a worse thing to own than the millisecond gap to a target nobody is held to (ED-66).
+
 ## STEP 7: Review notes
 - **Redis outage made every request 0.5 s slower** (two timeouts). Fixed with the back-off; measured before and after.
 - **`RoutingProperties` wasn't registered**, so the context failed to start in the first test run; fixed with `@EnableConfigurationProperties`.

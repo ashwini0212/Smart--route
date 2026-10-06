@@ -2,7 +2,7 @@
 
 Usage: python3 scripts/perf/route_latency.py <DEMO_USER_PASSWORD>   (stack running with the seed profile)
 """
-import http.client, json, random, statistics, sys, time
+import http.client, json, os, random, statistics, sys, time
 
 HOST, PORT = "localhost", 8080
 conn = http.client.HTTPConnection(HOST, PORT)
@@ -21,7 +21,12 @@ status, data, _ = call("POST", "/api/auth/login", {"email": "dispatcher@smartrou
 assert status == 200, data
 token = json.loads(data)["accessToken"]
 
-rnd = random.Random(7)
+# Seeded from the clock, and printed, because a fixed seed makes the second run of this script a lie: the
+# same 300 trips are still in the Redis cache from the first one, so the "computed" rows measure cache hits.
+# Pass SEED to repeat a particular run.
+seed = int(os.environ.get("SEED", time.time()))
+print(f"trip seed {seed} (SEED={seed} repeats this run; a fresh seed is what makes the computed rows cold)")
+rnd = random.Random(seed)
 def point():
     return {"latitude": rnd.uniform(12.965, 13.075), "longitude": rnd.uniform(77.585, 77.700)}
 pairs = [(point(), point()) for _ in range(300)]

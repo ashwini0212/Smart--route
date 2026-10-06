@@ -211,28 +211,43 @@ export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () =>
   )
 }
 
+/**
+ * Paging for both shapes the API returns: a counted page (`totalElements`/`totalPages`) and an uncounted
+ * slice (`hasNext`). The event log is a slice because counting an append-only table costs a full scan for a
+ * total that is stale before it is drawn, so this control says "page 3" without pretending to know of how many.
+ */
 export function Pagination({
   page,
   totalPages,
   totalElements,
+  hasNext,
   onPage,
 }: {
   page: number
-  totalPages: number
-  totalElements: number
+  totalPages?: number
+  totalElements?: number
+  hasNext?: boolean
   onPage: (page: number) => void
 }) {
+  const counted = totalElements !== undefined && totalPages !== undefined
+  const next = counted ? page + 1 < totalPages : hasNext === true
   return (
     <nav className="mt-4 flex items-center justify-between gap-3 text-sm" aria-label="Pagination">
       <p className="text-slate-600">
-        {totalElements} result{totalElements === 1 ? '' : 's'}
-        {totalPages > 0 && ` · page ${page + 1} of ${totalPages}`}
+        {counted ? (
+          <>
+            {totalElements} result{totalElements === 1 ? '' : 's'}
+            {totalPages > 0 && ` · page ${page + 1} of ${totalPages}`}
+          </>
+        ) : (
+          `page ${page + 1}`
+        )}
       </p>
       <div className="flex gap-2">
         <Button variant="secondary" onClick={() => onPage(page - 1)} disabled={page <= 0}>
           Previous
         </Button>
-        <Button variant="secondary" onClick={() => onPage(page + 1)} disabled={page + 1 >= totalPages}>
+        <Button variant="secondary" onClick={() => onPage(page + 1)} disabled={!next}>
           Next
         </Button>
       </div>

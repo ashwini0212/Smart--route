@@ -54,15 +54,24 @@ export function renderWithProviders(element: ReactElement, options: RenderOption
   return { ...result, queryClient }
 }
 
-/** A fetch stub routed by URL, so a test says what each endpoint answers and nothing else is reachable. */
-export function stubFetch(routes: Record<string, (input: RequestInit | undefined) => Response | Promise<Response>>) {
+/**
+ * A fetch stub routed by URL, so a test says what each endpoint answers and nothing else is reachable.
+ *
+ * The longest matching prefix wins, not the first one declared: '/api/events' would otherwise swallow
+ * '/api/events/outbox' and the page would be handed the wrong body. Each handler receives the request and
+ * the URL, so a handler can answer differently per page or filter.
+ */
+export function stubFetch(
+  routes: Record<string, (init: RequestInit | undefined, url: string) => Response | Promise<Response>>,
+) {
   const calls: { url: string; init?: RequestInit }[] = []
+  const patterns = Object.keys(routes).sort((a, b) => b.length - a.length)
   const stub = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : String(input)
     calls.push({ url, init })
-    const match = Object.keys(routes).find((pattern) => url.startsWith(pattern))
+    const match = patterns.find((pattern) => url.startsWith(pattern))
     if (!match) return new Response('{}', { status: 404, headers: { 'content-type': 'application/json' } })
-    return routes[match](init)
+    return routes[match](init, url)
   }
   globalThis.fetch = stub as typeof fetch
   return calls

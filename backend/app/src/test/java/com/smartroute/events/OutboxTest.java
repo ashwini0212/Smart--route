@@ -167,7 +167,9 @@ class OutboxTest extends ApiTestSupport {
         getUrl("/api/events/outbox")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.pending").value(1))
-                .andExpect(jsonPath("$.published").value(0));
+                // The published total is an estimate from the table's statistics, so it is only ever
+                // asserted as present: on a table this young, PostgreSQL's estimate is 0.
+                .andExpect(jsonPath("$.publishedEstimate").isNumber());
         getUrl("/api/events/outbox", users.token(Role.DISPATCHER)).andExpect(status().isForbidden());
     }
 

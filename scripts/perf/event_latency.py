@@ -17,10 +17,10 @@ import time
 import urllib.request
 from datetime import datetime
 
-BASE = os.environ.get("BASE_URL", "http://localhost:8080")
-EMAIL = os.environ.get("ADMIN_EMAIL", "admin@smartroute.local")
+BASE = os.environ.get("BASE_URL") or "http://localhost:8080"
+EMAIL = os.environ.get("ADMIN_EMAIL") or "admin@smartroute.local"
 PASSWORD = os.environ["ADMIN_PASSWORD"]
-ORDERS = int(os.environ.get("ORDERS", "50"))
+ORDERS = int(os.environ.get("ORDERS") or "50")
 
 
 def call(method, path, token=None, body=None):
@@ -70,7 +70,8 @@ def await_event(token, order_id, timeout=30.0):
     deadline = started + timeout
     while time.perf_counter() < deadline:
         body = call("GET", f"/api/events?aggregateType=order&aggregateId={order_id}", token)
-        if body["totalElements"]:
+        # The endpoint returns a slice, not a counted page (Phase 13): content is all there is to look at.
+        if body["content"]:
             return body["content"][0], (time.perf_counter() - started) * 1000
         time.sleep(0.02)
     raise SystemExit(f"Order {order_id}'s event never arrived within {timeout} s")

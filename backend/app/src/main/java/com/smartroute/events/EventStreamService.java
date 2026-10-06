@@ -1,8 +1,8 @@
 package com.smartroute.events;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,17 +27,21 @@ public class EventStreamService {
         this.clock = clock;
     }
 
-    public Page<SystemEventResponse> search(String eventType, String aggregateType, String aggregateId,
-                                            Pageable pageable) {
-        Page<SystemEvent> page;
+    /**
+     * A slice of the recorded stream. Not a page: counting the table cost 40 ms per view at 300k events, for
+     * a total that the relay had already made wrong.
+     */
+    public Slice<SystemEventResponse> search(String eventType, String aggregateType, String aggregateId,
+                                             Pageable pageable) {
+        Slice<SystemEvent> slice;
         if (aggregateType != null && aggregateId != null) {
-            page = systemEvents.findByAggregateTypeAndAggregateId(aggregateType, aggregateId, pageable);
+            slice = systemEvents.findByAggregateTypeAndAggregateId(aggregateType, aggregateId, pageable);
         } else if (eventType != null) {
-            page = systemEvents.findByEventType(eventType, pageable);
+            slice = systemEvents.findByEventType(eventType, pageable);
         } else {
-            page = systemEvents.findAll(pageable);
+            slice = systemEvents.findAllBy(pageable);
         }
-        return page.map(SystemEventResponse::from);
+        return slice.map(SystemEventResponse::from);
     }
 
     /** Published rows older than the retention window; unpublished rows are never deleted. */
@@ -46,12 +50,24 @@ public class EventStreamService {
         return outbox.deleteByPublishedAtBefore(clock.instant().minus(properties.keepPublished()));
     }
 
+    /**
+     * Outbox depth. {@code pending} is exact and cheap: the partial index on unpublished rows holds only the
+     * backlog, which is the number this endpoint exists for. {@code publishedEstimate} is deliberately an
+     * estimate — counting the published rows meant a sequential scan of the whole table, 52 ms at 320k rows
+     * and growing with every event the system has ever sent, to answer a question nobody makes a decision
+     * on. PostgreSQL's own row estimate for the table, minus the exact backlog, answers it for nothing.
+     */
     public OutboxStatus outboxStatus() {
-        return new OutboxStatus(outbox.countByPublishedAtIsNull(), outbox.countByPublishedAtIsNotNull(),
-                Instant.now());
+        long pending = outbox.countByPublishedAtIsNull();
+        long rows = Math.max(outbox.estimatedRowCount(), pending);
+        return new OutboxStatus(pending, rows - pending, Instant.now());
     }
 
-    /** How many events are waiting to be published; a growing {@code pending} means the relay is stuck. */
-    public record OutboxStatus(long pending, long published, Instant at) {
+    /**
+     * How many events are waiting to be published; a growing {@code pending} means the relay is stuck.
+     * {@code publishedEstimate} comes from the table's statistics, so it moves in steps as autovacuum
+     * refreshes them and can be out by a few per cent.
+     */
+    public record OutboxStatus(long pending, long publishedEstimate, Instant at) {
     }
 }

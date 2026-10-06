@@ -33,6 +33,17 @@ export interface PageResponse<T> {
   totalPages: number
 }
 
+/**
+ * A page of a list the server does not count. The event log is append-only and large, so it returns
+ * `hasNext` instead of a total: see SliceResponse.java.
+ */
+export interface SliceResponse<T> {
+  content: T[]
+  page: number
+  size: number
+  hasNext: boolean
+}
+
 export interface UserResponse {
   id: number
   email: string
@@ -266,7 +277,7 @@ export interface SystemEventResponse {
 
 export interface OutboxStatus {
   pending: number
-  published: number
+  publishedEstimate: number
   at: string
 }
 

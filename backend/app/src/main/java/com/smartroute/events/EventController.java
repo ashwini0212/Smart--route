@@ -1,7 +1,7 @@
 package com.smartroute.events;
 
 import com.smartroute.common.security.Access;
-import com.smartroute.common.web.PageResponse;
+import com.smartroute.common.web.SliceResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.Max;
@@ -29,15 +29,17 @@ class EventController {
 
     @GetMapping
     @PreAuthorize(Access.STAFF_OR_VIEWER)
-    @Operation(summary = "Recorded events, newest first; filter by type or by what they are about")
-    PageResponse<SystemEventResponse> search(
+    @Operation(summary = "Recorded events, newest first; filter by type or by what they are about."
+            + " Returns a slice with hasNext rather than a total: counting an append-only log costs a full"
+            + " scan for a number that is already stale")
+    SliceResponse<SystemEventResponse> search(
             @RequestParam(required = false) String eventType,
             @RequestParam(required = false) String aggregateType,
             @RequestParam(required = false) String aggregateId,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         Sort newestFirst = Sort.by(Sort.Order.desc("occurredAt"), Sort.Order.desc("id"));
-        return PageResponse.of(service.search(eventType, aggregateType, aggregateId,
+        return SliceResponse.of(service.search(eventType, aggregateType, aggregateId,
                 PageRequest.of(page, size, newestFirst)), e -> e);
     }
 

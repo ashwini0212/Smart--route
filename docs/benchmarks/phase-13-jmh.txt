@@ -1,0 +1,56 @@
+Benchmark                                           (drivers)  (gridSize)  (stops)  (tripType)  (weightName)  Mode  Cnt      Score      Error  Units
+NearestNodeBenchmark.bruteForce                           N/A         100      N/A         N/A           N/A  avgt    5   1247.720 ±  315.572  us/op
+NearestNodeBenchmark.bruteForce                           N/A         200      N/A         N/A           N/A  avgt    5   5773.715 ± 1282.151  us/op
+NearestNodeBenchmark.kdTree                               N/A         100      N/A         N/A           N/A  avgt    5      0.608 ±    0.206  us/op
+NearestNodeBenchmark.kdTree                               N/A         200      N/A         N/A           N/A  avgt    5      0.752 ±    0.275  us/op
+OneToManyBenchmark.separateRunsPerDriver                   10         100      N/A         N/A           N/A  avgt    5     19.725 ±    9.358  ms/op
+OneToManyBenchmark.separateRunsPerDriver                  100         100      N/A         N/A           N/A  avgt    5    172.574 ±   92.704  ms/op
+OneToManyBenchmark.singleReversedRun                       10         100      N/A         N/A           N/A  avgt    5      2.885 ±    1.122  ms/op
+OneToManyBenchmark.singleReversedRun                      100         100      N/A         N/A           N/A  avgt    5      3.713 ±    1.560  ms/op
+ShortestPathBenchmark.aStar                               N/A          50      N/A       LOCAL      DISTANCE  avgt    5     28.139 ±    3.884  us/op
+ShortestPathBenchmark.aStar                               N/A          50      N/A       LOCAL   TRAVEL_TIME  avgt    5     33.701 ±    3.716  us/op
+ShortestPathBenchmark.aStar                               N/A          50      N/A  CROSS_CITY      DISTANCE  avgt    5    256.095 ±   53.451  us/op
+ShortestPathBenchmark.aStar                               N/A          50      N/A  CROSS_CITY   TRAVEL_TIME  avgt    5    276.864 ±   57.933  us/op
+ShortestPathBenchmark.aStar                               N/A         100      N/A       LOCAL      DISTANCE  avgt    5     59.407 ±   11.719  us/op
+ShortestPathBenchmark.aStar                               N/A         100      N/A       LOCAL   TRAVEL_TIME  avgt    5     62.112 ±    9.636  us/op
+ShortestPathBenchmark.aStar                               N/A         100      N/A  CROSS_CITY      DISTANCE  avgt    5   1202.037 ±  169.178  us/op
+ShortestPathBenchmark.aStar                               N/A         100      N/A  CROSS_CITY   TRAVEL_TIME  avgt    5   1269.424 ±  334.813  us/op
+ShortestPathBenchmark.aStar                               N/A         200      N/A       LOCAL      DISTANCE  avgt    5    180.499 ±   29.705  us/op
+ShortestPathBenchmark.aStar                               N/A         200      N/A       LOCAL   TRAVEL_TIME  avgt    5    194.406 ±    3.977  us/op
+ShortestPathBenchmark.aStar                               N/A         200      N/A  CROSS_CITY      DISTANCE  avgt    5   7604.238 ± 1797.262  us/op
+ShortestPathBenchmark.aStar                               N/A         200      N/A  CROSS_CITY   TRAVEL_TIME  avgt    5   8349.507 ± 4721.333  us/op
+ShortestPathBenchmark.dijkstra                            N/A          50      N/A       LOCAL      DISTANCE  avgt    5     49.445 ±   14.242  us/op
+ShortestPathBenchmark.dijkstra                            N/A          50      N/A       LOCAL   TRAVEL_TIME  avgt    5     61.813 ±   28.415  us/op
+ShortestPathBenchmark.dijkstra                            N/A          50      N/A  CROSS_CITY      DISTANCE  avgt    5    297.247 ±   38.565  us/op
+ShortestPathBenchmark.dijkstra                            N/A          50      N/A  CROSS_CITY   TRAVEL_TIME  avgt    5    333.242 ±  121.263  us/op
+ShortestPathBenchmark.dijkstra                            N/A         100      N/A       LOCAL      DISTANCE  avgt    5     91.784 ±   29.464  us/op
+ShortestPathBenchmark.dijkstra                            N/A         100      N/A       LOCAL   TRAVEL_TIME  avgt    5     99.771 ±   19.545  us/op
+ShortestPathBenchmark.dijkstra                            N/A         100      N/A  CROSS_CITY      DISTANCE  avgt    5   1948.496 ±  738.471  us/op
+ShortestPathBenchmark.dijkstra                            N/A         100      N/A  CROSS_CITY   TRAVEL_TIME  avgt    5   2032.954 ± 1381.072  us/op
+ShortestPathBenchmark.dijkstra                            N/A         200      N/A       LOCAL      DISTANCE  avgt    5    249.121 ±   53.813  us/op
+ShortestPathBenchmark.dijkstra                            N/A         200      N/A       LOCAL   TRAVEL_TIME  avgt    5    263.794 ±   75.856  us/op
+ShortestPathBenchmark.dijkstra                            N/A         200      N/A  CROSS_CITY      DISTANCE  avgt    5  11487.562 ± 3698.774  us/op
+ShortestPathBenchmark.dijkstra                            N/A         200      N/A  CROSS_CITY   TRAVEL_TIME  avgt    5  12942.241 ± 8406.225  us/op
+StopSequencingBenchmark.costMatrix                        N/A         N/A        8         N/A           N/A  avgt    5     31.503 ±    9.070  ms/op
+StopSequencingBenchmark.costMatrix                        N/A         N/A       10         N/A           N/A  avgt    5     36.682 ±   18.650  ms/op
+StopSequencingBenchmark.costMatrix                        N/A         N/A       12         N/A           N/A  avgt    5     40.493 ±    8.382  ms/op
+StopSequencingBenchmark.costMatrix                        N/A         N/A       14         N/A           N/A  avgt    5     54.098 ±   13.419  ms/op
+StopSequencingBenchmark.heldKarpExact                     N/A         N/A        8         N/A           N/A  avgt    5      0.093 ±    0.023  ms/op
+StopSequencingBenchmark.heldKarpExact                     N/A         N/A       10         N/A           N/A  avgt    5      0.538 ±    0.026  ms/op
+StopSequencingBenchmark.heldKarpExact                     N/A         N/A       12         N/A           N/A  avgt    5      2.746 ±    0.412  ms/op
+StopSequencingBenchmark.heldKarpExact                     N/A         N/A       14         N/A           N/A  avgt    5     14.477 ±    3.843  ms/op
+StopSequencingBenchmark.nearestNeighbourOnly              N/A         N/A        8         N/A           N/A  avgt    5     ≈ 10⁻⁴             ms/op
+StopSequencingBenchmark.nearestNeighbourOnly              N/A         N/A       10         N/A           N/A  avgt    5     ≈ 10⁻⁴             ms/op
+StopSequencingBenchmark.nearestNeighbourOnly              N/A         N/A       12         N/A           N/A  avgt    5     ≈ 10⁻⁴             ms/op
+StopSequencingBenchmark.nearestNeighbourOnly              N/A         N/A       14         N/A           N/A  avgt    5     ≈ 10⁻⁴             ms/op
+StopSequencingBenchmark.nearestNeighbourThenTwoOpt        N/A         N/A        8         N/A           N/A  avgt    5      0.001 ±    0.001  ms/op
+StopSequencingBenchmark.nearestNeighbourThenTwoOpt        N/A         N/A       10         N/A           N/A  avgt    5      0.003 ±    0.001  ms/op
+StopSequencingBenchmark.nearestNeighbourThenTwoOpt        N/A         N/A       12         N/A           N/A  avgt    5      0.005 ±    0.005  ms/op
+StopSequencingBenchmark.nearestNeighbourThenTwoOpt        N/A         N/A       14         N/A           N/A  avgt    5      0.006 ±    0.004  ms/op
+
+Benchmark result is saved to /home/claude/smart--route/docs/benchmarks/phase-13-jmh.json
+
+Run with: java -jar backend/benchmarks/target/benchmarks.jar -f 1 -wi 3 -i 5
+2026-10-06, 4-core Intel Xeon @ 2.80GHz, 15 GB RAM, OpenJDK 21, nothing else running (backend stopped).
+Total run time 7:02. The wide error bars on the longer benchmarks are what a shared 4-core VM looks like;
+treat the ratios between rows as the result, not the absolute numbers.

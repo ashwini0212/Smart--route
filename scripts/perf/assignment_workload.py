@@ -13,10 +13,10 @@ import os
 import statistics
 import urllib.request
 
-BASE = os.environ.get("BASE_URL", "http://localhost:8080")
-EMAIL = os.environ.get("ADMIN_EMAIL", "admin@smartroute.local")
+BASE = os.environ.get("BASE_URL") or "http://localhost:8080"
+EMAIL = os.environ.get("ADMIN_EMAIL") or "admin@smartroute.local"
 PASSWORD = os.environ["ADMIN_PASSWORD"]
-LIMIT = int(os.environ.get("LIMIT", "400"))
+LIMIT = int(os.environ.get("LIMIT") or "400")
 
 DEFAULT_WEIGHTS = {"etaWeight": 0.6, "workloadWeight": 0.25, "capacityWeight": 0.15}
 ETA_ONLY = {"etaWeight": 1.0, "workloadWeight": 0.0, "capacityWeight": 0.0}

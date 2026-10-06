@@ -18,10 +18,10 @@ import urllib.request
 from collections import Counter
 from datetime import datetime, timezone
 
-BASE = os.environ.get("BASE_URL", "http://localhost:8080")
+BASE = os.environ.get("BASE_URL") or "http://localhost:8080"
 EMAIL = os.environ.get("ADMIN_EMAIL") or "admin@smartroute.local"
 PASSWORD = os.environ["ADMIN_PASSWORD"]
-SECONDS = float(os.environ.get("SECONDS", "60"))
+SECONDS = float(os.environ.get("SECONDS") or "60")
 
 
 def login():

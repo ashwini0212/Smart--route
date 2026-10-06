@@ -54,7 +54,7 @@ export function EventsPage() {
       {admin && outbox.data && (
         <p className="mb-4 rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">
           Outbox: {outbox.data.pending.toLocaleString()} waiting to publish,{' '}
-          {outbox.data.published.toLocaleString()} published. A pending count that keeps growing means the relay is
+          about {outbox.data.publishedEstimate.toLocaleString()} published. A pending count that keeps growing means the relay is
           stuck, not that the system is busy.
         </p>
       )}
@@ -132,12 +132,7 @@ export function EventsPage() {
                 </tr>
               ))}
             </Table>
-            <Pagination
-              page={list.data.page}
-              totalPages={list.data.totalPages}
-              totalElements={list.data.totalElements}
-              onPage={setPage}
-            />
+            <Pagination page={list.data.page} hasNext={list.data.hasNext} onPage={setPage} />
           </>
         )}
       </Card>

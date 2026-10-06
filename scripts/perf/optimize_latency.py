@@ -15,8 +15,8 @@ import sys
 import time
 import urllib.request
 
-BASE = os.environ.get("BASE_URL", "http://localhost:8080")
-EMAIL = os.environ.get("ADMIN_EMAIL", "admin@smartroute.local")
+BASE = os.environ.get("BASE_URL") or "http://localhost:8080"
+EMAIL = os.environ.get("ADMIN_EMAIL") or "admin@smartroute.local"
 PASSWORD = os.environ["ADMIN_PASSWORD"]
 PER_SIZE = int(sys.argv[1]) if len(sys.argv) > 1 else 15
 SIZES = [3, 5, 8, 10, 12, 14, 16, 20]

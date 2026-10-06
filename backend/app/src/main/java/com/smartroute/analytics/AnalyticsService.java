@@ -210,21 +210,22 @@ public class AnalyticsService {
         // Actual: assignment to PICKED_UP, which includes anything else the driver was doing. The difference is
         // therefore an upper bound on the routing error, and the response says so.
         List<EtaAccuracy> rows = jdbc.query("""
-                WITH pickups AS (
+                WITH pairs AS (
                     -- One row per pickup, paired with the assignment that was in force when it happened. An
-                    -- order can carry several assignment rows, so the assignment is chosen, not joined.
-                    SELECT h.order_id, h.changed_at,
-                           (SELECT a.id FROM assignment a
-                            WHERE a.order_id = h.order_id AND a.created_at <= h.changed_at AND a.eta_seconds IS NOT NULL
-                            ORDER BY a.created_at DESC, a.id DESC LIMIT 1) AS assignment_id
+                    -- order can carry several assignment rows, so the assignment is chosen, not joined. The
+                    -- choice is a LATERAL rather than a subquery returning an id and a join back to the
+                    -- table: the join back made the planner hash all of `assignment` for what is one index
+                    -- lookup per pickup (51 ms against 12 ms at 100k orders, see V7__analytics_indexes.sql).
+                    SELECT a.eta_seconds / 60.0                                      AS predicted,
+                           EXTRACT(EPOCH FROM (h.changed_at - a.created_at)) / 60    AS actual
                     FROM order_status_history h
+                    JOIN LATERAL (
+                        SELECT a.eta_seconds, a.created_at FROM assignment a
+                        WHERE a.order_id = h.order_id AND a.created_at <= h.changed_at
+                          AND a.eta_seconds IS NOT NULL
+                        ORDER BY a.created_at DESC, a.id DESC LIMIT 1
+                    ) a ON TRUE
                     WHERE h.to_status = 'PICKED_UP' AND h.changed_at >= ? AND h.changed_at <= ?
-                ),
-                pairs AS (
-                    SELECT a.eta_seconds / 60.0                                               AS predicted,
-                           EXTRACT(EPOCH FROM (p.changed_at - a.created_at)) / 60             AS actual
-                    FROM pickups p
-                    JOIN assignment a ON a.id = p.assignment_id
                 )
                 SELECT count(*)                                                               AS samples,
                        percentile_cont(0.5) WITHIN GROUP (ORDER BY predicted)                 AS predicted_median,

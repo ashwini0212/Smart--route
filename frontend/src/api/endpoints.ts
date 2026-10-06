@@ -18,6 +18,7 @@ import type {
   OrderStatusChangeResponse,
   OutboxStatus,
   PageResponse,
+  SliceResponse,
   Role,
   RouteMode,
   RouteResponse,
@@ -156,7 +157,7 @@ export const tracking = {
 
 export const events = {
   search: (params: { eventType?: string; aggregateType?: string; aggregateId?: string; page?: number; size?: number }) =>
-    request<PageResponse<SystemEventResponse>>(`/api/events${query({ ...params })}`),
+    request<SliceResponse<SystemEventResponse>>(`/api/events${query({ ...params })}`),
   outbox: () => request<OutboxStatus>('/api/events/outbox'),
 }
 

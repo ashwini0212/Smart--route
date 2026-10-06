@@ -1,0 +1,122 @@
+SmartRoute — Phase 13 database measurements
+Run on 2026-10-06. 4-core Intel Xeon @ 2.80GHz, 15 GB RAM, PostgreSQL 17.11 in Docker on the same host.
+Reproduce with: python3 scripts/perf/db_queries.py [--scale N] [--try-sql FILE]
+Each number is the median of 5 EXPLAIN (ANALYZE, BUFFERS) runs after one warm-up, so the cache is warm.
+
+================================================================================
+1. BEFORE — 100k synthetic orders over a year of history, no new indexes, old ETA query
+================================================================================
+Table sizes: delivery_order 100802 · order_status_history 404714 · assignment 81953 · outbox_event 336570 · system_event 336570
+[SYNTHETIC] The sizes above include 100000 generated orders and their history,
+inserted inside a transaction that is rolled back. They are not real deliveries.
+Each query: 1 warm-up + 5 measured runs, EXPLAIN (ANALYZE, BUFFERS).
+
+query                                median      min      max  scans
+------------------------------------------------------------------------------
+orders_page                           0.09ms    0.08ms    0.10ms  
+orders_page_count                    25.74ms   19.64ms   26.30ms  
+orders_page_deep                      1.13ms    0.83ms    1.43ms  
+order_history                         0.06ms    0.05ms    0.06ms  
+driver_active_orders                  4.57ms    4.29ms    5.32ms  
+drivers_with_active_orders           21.11ms   19.54ms   23.79ms  
+available_drivers_at_warehouse        0.27ms    0.26ms    0.29ms  seq: driver
+outbox_relay_poll                     0.20ms    0.16ms    0.26ms  
+outbox_count_pending                  0.15ms    0.13ms    0.16ms  
+outbox_count_published               64.64ms   54.66ms  101.33ms  seq: outbox_event
+events_page                           0.07ms    0.04ms    0.09ms  
+events_page_count                    43.09ms   37.14ms   48.11ms  
+events_by_aggregate                   0.07ms    0.07ms    0.09ms  
+refresh_token_lookup                  0.03ms    0.01ms    0.04ms  seq: refresh_token
+analytics_status_counts              34.48ms   31.65ms   53.00ms  seq: delivery_order
+analytics_punctuality                41.14ms   37.96ms   42.15ms  seq: order_status_history
+analytics_duration                   41.78ms   38.41ms   46.18ms  seq: order_status_history
+analytics_throughput                 45.44ms   43.38ms   53.07ms  seq: order_status_history
+analytics_fleet                      45.11ms   44.60ms   60.47ms  seq: order_status_history
+analytics_eta_accuracy               63.49ms   60.25ms  101.48ms  seq: assignment, order_status_history
+
+Slowest first, with what each one serves:
+     64.64 ms  outbox_count_published — the published total on GET /api/events/outbox
+     63.49 ms  analytics_eta_accuracy — /api/analytics/eta-accuracy — the predicted pickup time against what happened
+     45.44 ms  analytics_throughput — /api/analytics/throughput — completions per day
+     45.11 ms  analytics_fleet — /api/analytics/fleet — per-driver deliveries, the heaviest query here
+     43.09 ms  events_page_count — the count Spring Data issues for that page
+     41.78 ms  analytics_duration — /api/analytics/overview — assignment to delivery, per delivery
+
+================================================================================
+2. AFTER — the same 100k-order shape, with V7__analytics_indexes.sql and the rewritten ETA query
+================================================================================
+Table sizes: delivery_order 100802 · order_status_history 404714 · assignment 81953 · outbox_event 359334 · system_event 359334
+[SYNTHETIC] The sizes above include 100000 generated orders and their history,
+inserted inside a transaction that is rolled back. They are not real deliveries.
+Each query: 1 warm-up + 5 measured runs, EXPLAIN (ANALYZE, BUFFERS).
+
+query                                median      min      max  scans
+------------------------------------------------------------------------------
+orders_page                           0.14ms    0.11ms    0.18ms  
+orders_page_count                    16.09ms   15.33ms   21.17ms  
+orders_page_deep                      0.51ms    0.46ms    0.55ms  
+order_history                         0.04ms    0.04ms    0.06ms  
+driver_active_orders                  2.86ms    2.49ms    3.20ms  
+drivers_with_active_orders           19.51ms   19.04ms   20.76ms  
+available_drivers_at_warehouse        0.08ms    0.08ms    0.16ms  
+outbox_relay_poll                     0.18ms    0.17ms    0.28ms  
+outbox_count_pending                  0.18ms    0.13ms    0.33ms  
+outbox_count_published               66.61ms   49.39ms   91.39ms  seq: outbox_event
+events_page                           0.04ms    0.04ms    0.06ms  
+events_page_count                    49.24ms   41.10ms   57.05ms  
+events_by_aggregate                   0.08ms    0.07ms    0.10ms  
+refresh_token_lookup                  0.02ms    0.01ms    0.03ms  seq: refresh_token
+analytics_status_counts               1.27ms    1.19ms    1.46ms  
+analytics_punctuality                24.48ms   22.80ms   24.84ms  seq: delivery_order
+analytics_duration                    6.35ms    5.81ms    6.41ms  
+analytics_throughput                  1.41ms    1.14ms    1.60ms  
+analytics_fleet                      35.87ms   31.60ms   38.27ms  seq: delivery_order
+analytics_eta_accuracy               10.84ms   10.60ms   11.70ms  
+
+Slowest first, with what each one serves:
+     66.61 ms  outbox_count_published — the published total on GET /api/events/outbox
+     49.24 ms  events_page_count — the count Spring Data issues for that page
+     35.87 ms  analytics_fleet — /api/analytics/fleet — per-driver deliveries, the heaviest query here
+     24.48 ms  analytics_punctuality — /api/analytics/overview — on time against the delivery window
+     19.51 ms  drivers_with_active_orders — DeliveryWatch.sweep() — who has anything to deliver right now
+     16.09 ms  orders_page_count — the count Spring Data issues for the same page, to render 'of N'
+
+================================================================================
+3. AFTER — the real demo database (802 orders, 360k events), nothing else running
+The backend was stopped for this one. With the simulators on, the same queries measured up to 20x
+slower (analytics_status_counts 0.7ms -> 17ms); that is contention from a few hundred writes a
+second, not the cost of the query, and it is worth knowing which of the two you are looking at.
+================================================================================
+Table sizes: delivery_order 802 · order_status_history 4714 · assignment 1953 · outbox_event 361179 · system_event 361150
+Each query: 1 warm-up + 5 measured runs, EXPLAIN (ANALYZE, BUFFERS).
+
+query                                median      min      max  scans
+------------------------------------------------------------------------------
+orders_page                           0.12ms    0.09ms    0.17ms  
+orders_page_count                     0.33ms    0.33ms    0.42ms  seq: delivery_order
+orders_page_deep                      0.93ms    0.88ms    1.14ms  seq: delivery_order
+order_history                         0.08ms    0.08ms    0.09ms  
+driver_active_orders                  0.12ms    0.09ms    0.18ms  
+drivers_with_active_orders            0.22ms    0.18ms    0.23ms  
+available_drivers_at_warehouse        0.08ms    0.06ms    0.24ms  seq: driver
+outbox_relay_poll                     0.11ms    0.10ms    0.14ms  
+outbox_count_pending                  0.10ms    0.09ms    0.15ms  
+outbox_count_published               72.78ms   58.10ms   79.55ms  seq: outbox_event
+events_page                           0.06ms    0.05ms    0.09ms  
+events_page_count                    53.41ms   39.02ms   59.73ms  
+events_by_aggregate                   0.07ms    0.06ms    0.07ms  
+refresh_token_lookup                  0.02ms    0.01ms    0.02ms  seq: refresh_token
+analytics_status_counts               0.43ms    0.35ms    0.47ms  seq: delivery_order
+analytics_punctuality                 0.45ms    0.38ms    0.76ms  seq: delivery_order
+analytics_duration                    0.30ms    0.28ms    0.33ms  
+analytics_throughput                  0.13ms    0.12ms    0.14ms  
+analytics_fleet                       2.21ms    1.48ms    3.47ms  seq: delivery_order
+analytics_eta_accuracy                1.40ms    0.82ms    1.95ms  
+
+Slowest first, with what each one serves:
+     72.78 ms  outbox_count_published — what GET /api/events/outbox used to do; it now reports an estimate instead (Phase 13)
+     53.41 ms  events_page_count — what a counted page over the log costs; /api/events returns a slice instead (Phase 13)
+      2.21 ms  analytics_fleet — /api/analytics/fleet — per-driver deliveries, the heaviest query here
+      1.40 ms  analytics_eta_accuracy — /api/analytics/eta-accuracy — the predicted pickup time against what happened
+      0.93 ms  orders_page_deep — page 36 of the same list — what OFFSET costs
+      0.45 ms  analytics_punctuality — /api/analytics/overview — on time against the delivery window

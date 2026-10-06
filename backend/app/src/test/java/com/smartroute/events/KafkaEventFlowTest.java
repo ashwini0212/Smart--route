@@ -154,7 +154,9 @@ class KafkaEventFlowTest extends ApiTestSupport {
         await().atMost(PATIENCE).until(() -> recordedEvents() == 1);
         getUrl("/api/events?aggregateType=order&aggregateId=" + orderId)
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalElements").value(1))
+                // A slice, not a page: one row and nothing after it. See SliceResponse.
+                .andExpect(jsonPath("$.hasNext").value(false))
+                .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].eventId").value(eventId))
                 .andExpect(jsonPath("$.content[0].eventType").value("ORDER_CREATED"))
                 .andExpect(jsonPath("$.content[0].summary").value(
@@ -256,7 +258,7 @@ class KafkaEventFlowTest extends ApiTestSupport {
                 SELECT event_type FROM system_event WHERE aggregate_type = 'order' AND aggregate_id = ?
                 ORDER BY occurred_at, id""", String.class, Long.toString(orderId)))
                 .containsExactly("ORDER_CREATED", "ORDER_ASSIGNED", "DELIVERY_STARTED", "DELIVERY_COMPLETED");
-        getUrl("/api/events?eventType=DELIVERY_COMPLETED").andExpect(jsonPath("$.totalElements").value(1));
+        getUrl("/api/events?eventType=DELIVERY_COMPLETED").andExpect(jsonPath("$.content.length()").value(1));
     }
 
     @Test
