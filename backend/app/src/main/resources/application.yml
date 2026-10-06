@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: smartroute
+
+server:
+  port: ${SERVER_PORT:8080}
+  # Never leak stack traces or exception messages to API clients.
+  error:
+    include-stacktrace: never
+    include-message: never
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Only health and info are public. Metrics are exposed in Phase 12, behind auth.
+        include: health,info
+  endpoint:
+    health:
+      # /actuator/health/liveness and /actuator/health/readiness for Docker/Kubernetes probes.
+      probes:
+        enabled: true
+      show-details: never
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: SmartRoute
+    description: Intelligent real-time logistics and route optimization platform
+    version: '@project.version@'
