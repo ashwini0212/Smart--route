@@ -52,7 +52,7 @@ public class OrderService {
                 request.dropAddress(), request.dropLatitude(), request.dropLongitude(), request.priority(),
                 request.weightKg(), request.volumeM3(), request.requiredVehicleType(),
                 request.windowStart(), request.windowEnd()));
-        history.save(new OrderStatusChange(order.getId(), null, OrderStatus.CREATED, "Order created", clock.instant()));
+        recordChange(order, null, null, "Order created");
         return OrderResponse.from(order);
     }
 
@@ -154,8 +154,9 @@ public class OrderService {
     private void recordChange(DeliveryOrder order, Long driverId, OrderStatus previous, String reason) {
         Instant now = clock.instant();
         history.save(new OrderStatusChange(order.getId(), previous, order.getStatus(), reason, now));
-        events.publishEvent(new OrderStatusChangedEvent(order.getId(), order.getCode(), driverId, previous,
-                order.getStatus(), order.getWeightKg(), order.getVolumeM3(), reason, now));
+        events.publishEvent(new OrderStatusChangedEvent(order.getId(), order.getCode(), order.getWarehouseId(),
+                order.getPriority(), driverId, previous, order.getStatus(), order.getWeightKg(),
+                order.getVolumeM3(), reason, now));
     }
 
     public long count() {

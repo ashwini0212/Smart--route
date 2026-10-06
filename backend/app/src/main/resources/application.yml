@@ -27,6 +27,28 @@ spring:
       # Fail fast: a slow or missing cache must not slow every route request down.
       timeout: 250ms
       connect-timeout: 250ms
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
+    producer:
+      # acks=all + an idempotent producer: a send is acknowledged only once every in-sync replica has it,
+      # and a retried send cannot produce a duplicate record on the broker.
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+        delivery.timeout.ms: 20000
+        request.timeout.ms: 5000
+    consumer:
+      # The outbox is the source of truth, so a new consumer group reads the log from its start.
+      auto-offset-reset: earliest
+      # Offsets are committed by the container after the listener returns, never by a timer: a record that
+      # failed every retry is only acknowledged once it has been written to the dead-letter topic.
+      enable-auto-commit: false
+      properties:
+        spring.json.use.type.headers: false
+    listener:
+      ack-mode: record
+      missing-topics-fatal: false
 
 smartroute:
   security:
@@ -46,6 +68,12 @@ smartroute:
     dataset-directory: ${ROAD_NETWORK_DIR:}
     max-snap-distance-meters: 300
     cache-ttl: 10m
+  events:
+    # false stops publishing to and consuming from Kafka (used by tests that need no broker); events are
+    # still written to the outbox, because that happens inside the transaction that changed the data.
+    enabled: ${EVENTS_ENABLED:true}
+    relay-interval: ${EVENTS_RELAY_INTERVAL:500ms}
+    keep-published: ${EVENTS_KEEP_PUBLISHED:7d}
   seed:
     # Password for the demo logins created by the "seed" profile; demo users are skipped when empty.
     demo-password: ${DEMO_USER_PASSWORD:}

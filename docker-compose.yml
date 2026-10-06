@@ -83,6 +83,8 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       REDIS_HOST: redis
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # How often the outbox relay looks for unpublished events; it is also the typical delay of an event.
+      EVENTS_RELAY_INTERVAL: ${EVENTS_RELAY_INTERVAL:-500ms}
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
     depends_on:

@@ -233,3 +233,27 @@ Each entry: **Decision**, **Reason**, **Alternative**, **Tradeoff**. New entries
 - **Reason:** This is the one endpoint whose cost grows exponentially with input size: 20 stops at EXACT would be thousands of times a 10-stop request. A cap keeps one client from taking the CPU that serves everyone else.
 - **Alternative:** A work queue with a thread budget; no limit; rejecting large inputs outright (already done at 20 stops and 16 for exact).
 - **Tradeoff:** A legitimate bulk user hits the limit and must pace themselves; the limit is per instance, like the login limiter (ED-26).
+
+## ED-40 A transactional outbox instead of publishing from the service (Phase 9)
+- **Decision:** Domain events are written to `outbox_event` in the same transaction as the change they describe (`DomainEvents.append` is `Propagation.MANDATORY`). A scheduled relay publishes unpublished rows to Kafka oldest-first and stamps `published_at`.
+- **Reason:** A send inside a transaction can succeed while the transaction rolls back (an event about something that never happened) or fail after it commits (a change nobody hears about); no ordering of the two calls fixes it, because they are two systems. One database write makes the change and the event one atomic fact.
+- **Alternative:** Kafka transactions with the database in a 2PC (heavy, and PostgreSQL + Kafka 2PC is not a path worth taking for this); publishing after commit from a `@TransactionalEventListener` (loses the event if the send fails); change data capture with Debezium (a separate service to run).
+- **Tradeoff:** Events are late by up to the polling interval — measured p50 474 ms at the default 500 ms, 59 ms at 50 ms — and the outbox table needs a retention job. Delivery becomes at-least-once, which pushes deduplication onto every consumer (ED-41).
+
+## ED-41 Consumers deduplicate by inserting a marker, not by checking first (Phase 9)
+- **Decision:** A consumer inserts `(consumer_group, event_id)` into `processed_event` in the same transaction as its work. A repeated delivery fails the primary key, the transaction rolls back, and `EventConsumers.handleOnce` reports a skipped duplicate (the exception has to cross the transaction boundary to be catchable).
+- **Reason:** "Have I seen this?" followed by the work is two steps that two threads or two instances can interleave; four concurrent deliveries of one event are tested and exactly one does the work. The marker is per consumer group, so a consumer added later reads the whole log independently.
+- **Alternative:** A `SELECT` before the work (racy); Kafka exactly-once semantics with read-process-write transactions (ties the consumer's side effects to Kafka, and the side effect here is a database write); making every consumer naturally idempotent (not possible in general).
+- **Tradeoff:** One extra row and one extra insert per event per consumer group, and a table that grows with the stream (it needs the same kind of retention the outbox has). A failed delivery must leave no marker, which is why the claim and the work share one transaction rather than being committed separately.
+
+## ED-42 Blocking retries with exponential back-off, then a dead-letter topic (Phase 9)
+- **Decision:** Four attempts (200 ms, 400 ms, 800 ms) in the consumer, then publish to `<topic>.DLT` and move on. Parsing failures (unknown event type, a version newer than the consumer knows) are marked non-retryable and go straight to the dead-letter topic.
+- **Reason:** Blocking keeps the partition's order while one record is retried, which matters because order events are keyed by order. Retrying is right for something temporarily unavailable; a malformed record will never succeed, so retrying it only delays every later event behind it.
+- **Alternative:** Non-blocking retry topics (`@RetryableTopic`): higher throughput, but a retried record is re-delivered out of order; infinite retries (one bad record stops the partition); dropping failures (silent data loss).
+- **Tradeoff:** A failure that lasts longer than ~1.4 s sends the record to the dead-letter topic, so someone has to look at that topic — there is no alerting on it yet. During the back-off, the partition is stalled for every other key as well.
+
+## ED-43 Topics named after the lifecycle step, created by the application (Phase 9)
+- **Decision:** Seven topics named after what happened (`smartroute.order-created`, `…delivery-completed`, …), each with 3 partitions and a 1-partition `.DLT`, declared as a `KafkaAdmin.NewTopics` bean. Brokers run with auto-creation off. Unassignment shares the assignment topic; `IN_TRANSIT` is not published at all.
+- **Reason:** Consumers subscribe by what they care about rather than filtering a firehose. Creating the topics in code means a fresh cluster gets the intended partition count — auto-creation would use the broker default, and partitions can be added later but never removed.
+- **Alternative:** One topic for everything with the type as a header (simplest, every consumer reads everything); a topic per aggregate (`order-events`), which couples unrelated consumers to one stream.
+- **Tradeoff:** Seven topics plus seven dead-letter topics to operate, and a new event type usually means a new topic to create and subscribe to. Three partitions is a default chosen for headroom, not a measured number.

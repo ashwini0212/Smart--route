@@ -1,0 +1,27 @@
+Phase 9 - domain event pipeline, measured 2026-10-06T13:48Z
+Host: 4-vCPU cloud VM, docker compose (postgres 17, redis 8, kafka 4.1.0 KRaft, backend) on the same VM.
+Each order is created through POST /api/orders; the client then polls GET /api/events until the
+ORDER_CREATED event is there. 'commit -> recorded' is the event's own occurredAt to recordedAt.
+Script: scripts/perf/event_latency.py
+
+=== Default relay interval (EVENTS_RELAY_INTERVAL=500ms) ===
+50 orders created one at a time against http://localhost:8080
+outbox before: {'pending': 0, 'published': 102, 'at': '2026-10-06T13:48:55.860806348Z'}
+outbox after:  {'pending': 0, 'published': 152, 'at': '2026-10-06T13:49:22.063877585Z'}
+
+commit -> recorded (the event)     n=50   p50   474.5 ms   p95   494.0 ms   max   568.8 ms   mean   475.0 ms
+create -> visible (the client)     n=50   p50   490.6 ms   p95   521.4 ms   max   565.8 ms   mean   492.7 ms
+
+=== Faster relay (EVENTS_RELAY_INTERVAL=50ms), same stack, to show where the delay comes from ===
+50 orders created one at a time against http://localhost:8080
+outbox before: {'pending': 0, 'published': 152, 'at': '2026-10-06T13:50:01.295011949Z'}
+outbox after:  {'pending': 0, 'published': 202, 'at': '2026-10-06T13:50:07.627899463Z'}
+
+commit -> recorded (the event)     n=50   p50    58.5 ms   p95    76.0 ms   max  1058.3 ms   mean    70.8 ms
+create -> visible (the client)     n=50   p50    79.8 ms   p95   108.8 ms   max  1057.4 ms   mean    91.8 ms
+
+Reading: the delay is the relay's polling wait, not Kafka. At a 500 ms interval the pipeline takes
+p50 474 ms; with the same code at 50 ms it takes p50 59 ms, so almost all of the 474 ms is the wait for
+the next relay run. The max column in the 50 ms run (1058 ms; an earlier run of the same measurement
+showed 930 ms) is one order in fifty waiting on something else - most likely a consumer poll or a
+commit - and it did not appear in the 500 ms runs, where that wait hides inside the polling interval.
