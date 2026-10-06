@@ -2,6 +2,9 @@ package com.smartroute.events;
 
 import com.smartroute.common.security.Role;
 import com.smartroute.fleet.DriverService;
+import com.smartroute.fleet.LocationSource;
+import com.smartroute.tracking.LivePosition;
+import com.smartroute.tracking.LivePositions;
 import com.smartroute.support.ApiTestSupport;
 import com.smartroute.support.KafkaTestcontainersConfiguration;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -72,6 +75,9 @@ class KafkaEventFlowTest extends ApiTestSupport {
 
     @Autowired
     private DriverService drivers;
+
+    @Autowired
+    private LivePositions positions;
 
     @Autowired
     private KafkaContainer kafkaContainer;
@@ -271,6 +277,50 @@ class KafkaEventFlowTest extends ApiTestSupport {
                 assertThat(described.get(topic + ".DLT").partitions()).hasSize(1);
             }
         }
+    }
+
+    @Test
+    void aLocationEventReachesTheLivePositionReadModel() throws Exception {
+        // The second consumer group: the same records that fill the event log also drive the live map.
+        long driverId = createDriver(warehouseId, createVehicle("KA01-K-0002", "VAN"));
+        Instant at = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
+        kafka.send(EventType.Topics.DRIVER_LOCATION, Long.toString(driverId), """
+                {"eventId":"%s","type":"DRIVER_LOCATION_UPDATED","version":1,"aggregateType":"driver",\
+                "aggregateId":"%d","occurredAt":"%s","correlationId":null,\
+                "payload":{"driverId":%d,"latitude":12.955,"longitude":77.605,"at":"%s","source":"SIMULATION"}}"""
+                .formatted(UUID.randomUUID(), driverId, at, driverId, at));
+
+        await().atMost(PATIENCE).until(() -> positions.of(driverId).isPresent());
+
+        LivePosition position = positions.of(driverId).orElseThrow();
+        assertThat(position.latitude()).isEqualTo(12.955);
+        assertThat(position.at()).isEqualTo(at);
+        assertThat(position.source()).isEqualTo(LocationSource.SIMULATION);
+        getUrl("/api/tracking/drivers/" + driverId)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.source").value("SIMULATION"));
+    }
+
+    @Test
+    void anOlderLocationEventDoesNotMoveTheDriverBackwards() throws Exception {
+        long driverId = createDriver(warehouseId, createVehicle("KA01-K-0003", "VAN"));
+        Instant now = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
+        send(driverId, 12.900, now);
+        await().atMost(PATIENCE).until(() -> positions.of(driverId).isPresent());
+
+        send(driverId, 13.500, now.minusSeconds(60));
+
+        // Nothing to await on (the point is that nothing changes), so hold briefly and then assert.
+        await().during(Duration.ofSeconds(3)).atMost(PATIENCE)
+                .until(() -> positions.of(driverId).orElseThrow().latitude() == 12.900);
+    }
+
+    private void send(long driverId, double latitude, Instant at) {
+        kafka.send(EventType.Topics.DRIVER_LOCATION, Long.toString(driverId), """
+                {"eventId":"%s","type":"DRIVER_LOCATION_UPDATED","version":1,"aggregateType":"driver",\
+                "aggregateId":"%d","occurredAt":"%s","correlationId":null,\
+                "payload":{"driverId":%d,"latitude":%s,"longitude":77.605,"at":"%s","source":"API"}}"""
+                .formatted(UUID.randomUUID(), driverId, at, driverId, latitude, at));
     }
 
     @Test

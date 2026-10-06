@@ -25,6 +25,11 @@ interface OrderRepository extends JpaRepository<DeliveryOrder, Long>, JpaSpecifi
 
     List<DeliveryOrder> findByDriverIdAndStatusInOrderByAssignedAtAscIdAsc(long driverId, Collection<OrderStatus> statuses);
 
+    /** Drivers that hold at least one order in one of these statuses; the tracking sweep's only read. */
+    @Query("SELECT DISTINCT o.driverId FROM DeliveryOrder o WHERE o.driverId IS NOT NULL AND o.status IN :statuses"
+            + " ORDER BY o.driverId")
+    List<Long> findDriverIdsWithActiveOrders(@Param("statuses") Collection<OrderStatus> statuses);
+
     @Query(value = "SELECT nextval('order_code_seq')", nativeQuery = true)
     long nextCodeNumber();
 }

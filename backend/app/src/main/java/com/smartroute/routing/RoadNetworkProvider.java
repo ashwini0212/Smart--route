@@ -11,6 +11,7 @@ import com.smartroute.common.error.ApiException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -44,10 +45,12 @@ public class RoadNetworkProvider {
     private final boolean synthetic;
     private final String baseFingerprint;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
     private final AtomicReference<RoadNetwork> current = new AtomicReference<>();
 
-    RoadNetworkProvider(RoutingProperties properties, Clock clock) {
+    RoadNetworkProvider(RoutingProperties properties, Clock clock, ApplicationEventPublisher events) {
         this.clock = clock;
+        this.events = events;
         long started = System.nanoTime();
         Graph raw;
         String dataset = properties.datasetDirectory();
@@ -110,6 +113,8 @@ public class RoadNetworkProvider {
                 withTraffic, index, sorted, clock.instant());
         current.set(next);
         log.info("Road network version {}: traffic on {} segments", next.version(), sorted.size());
+        // Listeners (the tracking sweep) decide what a changed network means for routes already being driven.
+        events.publishEvent(new TrafficChangedEvent(next.version(), sorted.size(), next.builtAt()));
         return next;
     }
 

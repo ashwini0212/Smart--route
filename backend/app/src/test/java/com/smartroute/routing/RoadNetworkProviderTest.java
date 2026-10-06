@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -13,8 +15,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RoadNetworkProviderTest {
 
+    /** Collects the traffic events the provider publishes, so the test can assert on them. */
+    private final List<TrafficChangedEvent> published = new ArrayList<>();
+
     private final RoadNetworkProvider provider = new RoadNetworkProvider(
-            new RoutingProperties(null, 20, 20, 42, 300, Duration.ofMinutes(10)), Clock.systemUTC());
+            new RoutingProperties(null, 20, 20, 42, 300, Duration.ofMinutes(10)), Clock.systemUTC(),
+            event -> published.add((TrafficChangedEvent) event));
 
     private Edge someEdge() {
         return provider.current().graph().outgoing(0).getFirst();
@@ -75,5 +81,16 @@ class RoadNetworkProviderTest {
         assertThatThrownBy(() -> provider.replaceTraffic(Map.of(new RoadNetwork.EdgeKey(0, 0), 2.0)))
                 .isInstanceOf(ApiException.class);
         assertThat(provider.current().version()).isEqualTo(1);
+    }
+
+    @Test
+    void aTrafficChangePublishesAnEventForListenersToReactTo() {
+        Edge edge = someEdge();
+
+        provider.replaceTraffic(Map.of(new RoadNetwork.EdgeKey(edge.from(), edge.to()), 3.0));
+
+        assertThat(published).hasSize(1);
+        assertThat(published.getFirst().networkVersion()).isEqualTo(2);
+        assertThat(published.getFirst().slowSegments()).isEqualTo(1);
     }
 }

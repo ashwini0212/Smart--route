@@ -27,6 +27,13 @@ spring:
       # Fail fast: a slow or missing cache must not slow every route request down.
       timeout: 250ms
       connect-timeout: 250ms
+  task:
+    scheduling:
+      # One thread is the default, and everything scheduled shares it: the outbox relay, the tracking sweep,
+      # the heartbeat and the simulators. Measured with one thread, a 2 s sweep stalled the relay and pushed
+      # the live map's p95 delay to 5.5 s (worst case 29 s). See docs/benchmarks/phase-10-live-tracking.txt.
+      pool:
+        size: ${SCHEDULING_THREADS:4}
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9094}
     producer:
@@ -68,6 +75,28 @@ smartroute:
     dataset-directory: ${ROAD_NETWORK_DIR:}
     max-snap-distance-meters: 300
     cache-ttl: 10m
+  tracking:
+    # false stops the scheduled delay/route sweep (it can still be run with POST /api/tracking/sweep).
+    enabled: ${TRACKING_ENABLED:true}
+    sweep-interval: ${TRACKING_SWEEP_INTERVAL:15s}
+    # How late a delivery must be predicted to arrive before an alert is raised, and how much worse an
+    # already-reported delay must get before it is reported again.
+    late-threshold: ${TRACKING_LATE_THRESHOLD:60s}
+    late-growth: ${TRACKING_LATE_GROWTH:5m}
+    # Relative change in a driver's route duration that counts as a recalculation (0.1 = 10 %).
+    recalculate-shift: 0.1
+    heartbeat: 20s
+    position-ttl: 1h
+  simulation:
+    # [SIMULATION] Both invent data and are off unless asked for; see docs/phases/phase-10-live-tracking.md.
+    drivers: ${SIMULATE_DRIVERS:false}
+    traffic: ${SIMULATE_TRAFFIC:false}
+    tick: ${SIMULATE_TICK:2s}
+    speed-kph: ${SIMULATE_SPEED_KPH:30}
+    traffic-tick: ${SIMULATE_TRAFFIC_TICK:30s}
+    traffic-segments: ${SIMULATE_TRAFFIC_SEGMENTS:40}
+    max-multiplier: ${SIMULATE_MAX_MULTIPLIER:4.0}
+    seed: 42
   events:
     # false stops publishing to and consuming from Kafka (used by tests that need no broker); events are
     # still written to the outbox, because that happens inside the transaction that changed the data.

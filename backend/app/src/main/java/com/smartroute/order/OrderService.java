@@ -141,6 +141,11 @@ public class OrderService {
                 .stream().map(OrderAssignmentView::from).toList();
     }
 
+    /** Ids of drivers that currently hold at least one active delivery, lowest first. */
+    public List<Long> driversWithActiveDeliveries() {
+        return orders.findDriverIdsWithActiveOrders(ACTIVE);
+    }
+
     /** Orders the driver currently has (assigned, picked up or in transit), oldest assignment first. */
     public List<OrderResponse> activeForDriver(long driverId) {
         return orders.findByDriverIdAndStatusInOrderByAssignedAtAscIdAsc(driverId, ACTIVE).stream()

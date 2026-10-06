@@ -1,0 +1,55 @@
+Phase 10 - live tracking, measured 2026-10-06T14:27Z
+Host: 4-vCPU cloud VM, docker compose (postgres 17, redis 8, kafka 4.1.0, backend) on the same VM.
+Seeded demo data (120 drivers, 702 orders waiting at the start), 40 orders auto-dispatched, then both
+[SIMULATION] simulators on: drivers move at 30 km/h every 2 s, 40 random segments jammed every 30 s.
+Scripts: scripts/perf/live_latency.py (the stream), POST /api/tracking/sweep (the sweep).
+
+=== Delay and route sweep, 48 drivers with active deliveries, nothing newly late ===
+{"driversChecked":48,"delaysReported":0,"routesRecalculated":0,"failures":0,"durationMillis":1570}
+{"driversChecked":48,"delaysReported":0,"routesRecalculated":0,"failures":0,"durationMillis":1953}
+{"driversChecked":48,"delaysReported":0,"routesRecalculated":0,"failures":0,"durationMillis":1654}
+
+=== Live stream, default relay interval (500 ms) ===
+Watched http://localhost:8080/api/tracking/stream for 60.1 s
+frames by type: {'hello': 1, 'driver-moved': 1056, 'heartbeat': 3}
+driver-moved by source: {'SIMULATION': 1056}
+driver-moved frames: 1056 (17.6/s)
+position recorded -> frame read: p50 508 ms  p95 1931 ms  max 2135 ms  mean 648 ms
+
+=== Live stream, relay interval 50 ms, same stack ===
+Watched http://localhost:8080/api/tracking/stream for 61.0 s
+frames by type: {'hello': 1, 'driver-moved': 961, 'heartbeat': 3, 'delivery-delayed': 19}
+driver-moved by source: {'SIMULATION': 961}
+driver-moved frames: 961 (15.8/s)
+position recorded -> frame read: p50 613 ms  p95 5466 ms  max 29216 ms  mean 942 ms
+
+=== Same stack, after giving the scheduler 4 threads instead of 1 (default relay interval 500 ms) ===
+Watched http://localhost:8080/api/tracking/stream for 60.3 s
+frames by type: {'hello': 1, 'driver-moved': 1051, 'heartbeat': 3}
+driver-moved by source: {'SIMULATION': 1051}
+driver-moved frames: 1051 (17.4/s)
+position recorded -> frame read: p50 530 ms  p95 878 ms  max 3266 ms  mean 581 ms
+
+=== 4 scheduler threads and relay interval 50 ms ===
+Watched http://localhost:8080/api/tracking/stream for 60.0 s
+frames by type: {'driver-moved': 986, 'hello': 1, 'heartbeat': 3, 'delivery-delayed': 19}
+driver-moved by source: {'SIMULATION': 986}
+driver-moved frames: 986 (16.4/s)
+position recorded -> frame read: p50 122 ms  p95 219 ms  max 738 ms  mean 129 ms
+
+Reading:
+- A sweep over 48 drivers with active deliveries takes 1.6-2.6 s, which is ~35-55 ms per driver: it computes
+  a cost matrix and a visiting order per driver (Phase 8 measured the matrix as the expensive part). At the
+  default 15 s interval that is about 15 % of one core, continuously. It does not scale to a few hundred
+  active drivers on one instance, and the fix is not a faster sweep but a smaller one: re-check only the
+  drivers whose orders or road network actually changed.
+- The live map's delay is dominated by the outbox relay's polling interval (Phase 9 measured the same thing),
+  not by Kafka, Redis or SSE: 500 ms interval gives p50 ~0.5 s, 50 ms gives p50 0.12 s.
+- The 50 ms run on a single scheduler thread was the slowest of the four (p50 613 ms, p95 5.5 s, worst case
+  29 s), which is the opposite of what a faster relay should do. Cause: Spring's scheduler runs one thread by
+  default, and everything scheduled shares it - the relay, the 2 s tracking sweep, the driver simulator and
+  the heartbeat. A faster relay simply competed for the same thread more often. With 4 threads the same
+  configuration gives p50 122 ms / p95 219 ms, and the default interval improves from p95 1.9 s to 0.9 s.
+  The pool size is now a setting (SCHEDULING_THREADS, default 4).
+- Frames arrive at 16-19/s with ~48 drivers moving every 2 s, which is the simulator's rate, not a limit.
+  One sequential client on the same machine; this says nothing about many dashboards at once.

@@ -88,8 +88,21 @@ public class DriverService {
     /** Latest known GPS position (from the location stream in Phase 10, or seed data). */
     @Transactional
     public void updateLocation(long id, double latitude, double longitude, Instant at) {
+        updateLocation(id, latitude, longitude, at, LocationSource.API);
+    }
+
+    /**
+     * Records a position and says where it came from; the source travels with the event (see
+     * {@link LocationSource}).
+     *
+     * <p>Annotated even though the method above delegates to it: this class is {@code readOnly} by default, so
+     * without it a caller of this overload writes nothing at all (Hibernate skips the flush) and the location
+     * event's outbox row disappears with it.
+     */
+    @Transactional
+    public void updateLocation(long id, double latitude, double longitude, Instant at, LocationSource source) {
         load(id).recordLocation(latitude, longitude, at);
-        events.publishEvent(new DriverLocationChangedEvent(id, latitude, longitude, at));
+        events.publishEvent(new DriverLocationChangedEvent(id, latitude, longitude, at, source));
     }
 
     /**
@@ -159,7 +172,7 @@ public class DriverService {
             return new DriverCandidateView(d.getId(), d.getCode(), d.getStatus(), d.getLastLatitude(),
                     d.getLastLongitude(), v == null ? null : v.getType(), v == null ? null : v.getStatus(),
                     v == null ? null : v.getMaxWeightKg(), v == null ? null : v.getMaxVolumeM3(),
-                    d.getCurrentLoadKg(), d.getCurrentLoadM3(), d.getActiveDeliveryCount());
+                    d.getCurrentLoadKg(), d.getCurrentLoadM3(), d.getActiveDeliveryCount(), d.getLastLocationAt());
         }).toList();
     }
 

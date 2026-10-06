@@ -85,6 +85,9 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       # How often the outbox relay looks for unpublished events; it is also the typical delay of an event.
       EVENTS_RELAY_INTERVAL: ${EVENTS_RELAY_INTERVAL:-500ms}
+      # [SIMULATION] Off unless you ask for it: these generate driver positions and traffic.
+      SIMULATE_DRIVERS: ${SIMULATE_DRIVERS:-false}
+      SIMULATE_TRAFFIC: ${SIMULATE_TRAFFIC:-false}
     ports:
       - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
     depends_on:

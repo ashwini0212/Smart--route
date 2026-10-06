@@ -76,6 +76,8 @@ class OrderEventPublisher {
         payload.put("latitude", event.latitude());
         payload.put("longitude", event.longitude());
         payload.put("at", event.at().toString());
+        // Says whether a person or the simulator produced this position; see fleet.LocationSource.
+        payload.put("source", event.source().name());
         events.append(EventType.DRIVER_LOCATION_UPDATED, DRIVER, Long.toString(event.driverId()), payload);
     }
 

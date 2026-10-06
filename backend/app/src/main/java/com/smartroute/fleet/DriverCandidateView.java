@@ -1,6 +1,7 @@
 package com.smartroute.fleet;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 
 /**
  * What the assignment engine needs to know about a driver: availability, position, vehicle and load.
@@ -18,7 +19,8 @@ public record DriverCandidateView(
         BigDecimal maxVolumeM3,
         BigDecimal loadKg,
         BigDecimal loadM3,
-        int activeDeliveries) {
+        int activeDeliveries,
+        Instant locationUpdatedAt) {
 
     public boolean hasVehicle() {
         return vehicleType != null;
