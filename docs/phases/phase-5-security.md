@@ -37,7 +37,7 @@ No server session exists. Every API request is verified from the token alone, so
 
 | Endpoint | ADMIN | DISPATCHER | VIEWER | DRIVER |
 |---|---|---|---|---|
-| Read orders, history | ✓ | ✓ | ✓ | ✗ (Phase 7 adds "my deliveries") |
+| Read orders, history | ✓ | ✓ | ✓ | ✗ (their own deliveries: `/api/deliveries/mine`, Phase 7) |
 | Create / cancel orders | ✓ | ✓ | ✗ | ✗ |
 | List drivers, vehicles | ✓ | ✓ | ✓ | ✗ |
 | Read a driver | ✓ | ✓ | ✓ | own record only |

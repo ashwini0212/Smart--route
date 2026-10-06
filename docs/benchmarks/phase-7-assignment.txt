@@ -1,0 +1,59 @@
+SmartRoute Phase 7: assignment measurements
+Date: 2026-10-06T12:23Z  Host: 4-vCPU cloud VM, docker compose (postgres 17, redis 8, backend)
+Data: seed profile, 4 hubs, 120 drivers (105 on shift), 600 CREATED orders, synthetic 10k-node city
+
+=== Experiment A: 400-order run (demand above fleet capacity) ===
+
+Configured weights: ETA 0.6, workload 0.25, capacity fit 0.15
+  assigned                 375 of 600 waiting
+  not assigned             25
+  run time                 5322 ms
+  drivers used             87 of 105 on shift
+  deliveries per driver    max 8, mean 3.57, stdev 2.69
+  pickup ETA (minutes)     mean 4.0, median 3.8, max 10.8
+
+ETA only (nearest-driver baseline): ETA 1.0, workload 0, capacity fit 0
+  assigned                 382 of 600 waiting
+  not assigned             18
+  run time                 5575 ms
+  drivers used             87 of 105 on shift
+  deliveries per driver    max 8, mean 3.64, stdev 2.79
+  pickup ETA (minutes)     mean 3.7, median 3.6, max 10.8
+
+Difference (configured vs ETA only): stdev 2.69 vs 2.79, busiest driver 8 vs 8 deliveries, mean pickup ETA 4.0 vs 3.7 min
+
+=== Experiment B: 100-order run (demand below fleet capacity) ===
+
+Configured weights: ETA 0.6, workload 0.25, capacity fit 0.15
+  assigned                 100 of 600 waiting
+  not assigned             0
+  run time                 1769 ms
+  drivers used             52 of 105 on shift
+  deliveries per driver    max 4, mean 0.95, stdev 1.13
+  pickup ETA (minutes)     mean 2.7, median 2.9, max 4.5
+
+ETA only (nearest-driver baseline): ETA 1.0, workload 0, capacity fit 0
+  assigned                 100 of 600 waiting
+  not assigned             0
+  run time                 1189 ms
+  drivers used             30 of 105 on shift
+  deliveries per driver    max 8, mean 0.95, stdev 1.95
+  pickup ETA (minutes)     mean 2.1, median 2.0, max 4.1
+
+Difference (configured vs ETA only): stdev 1.13 vs 1.95, busiest driver 4 vs 8 deliveries, mean pickup ETA 2.7 vs 2.1 min
+
+=== Endpoint latency (one sequential client, 100 requests each) ===
+GET /api/assignments/candidates?k=5 (105 drivers on shift, 5 km radius)
+  n=100  p50 17.7 ms  p95 26.9 ms  max 100.3 ms
+GET /api/orders/{id} (baseline: auth + one query)
+  n=100  p50 5.4 ms  p95 6.8 ms  max 14.3 ms
+
+=== Redis outage (docker compose stop redis) ===
+Redis stopped: candidate endpoint still answers from the database scan
+  driversInRadius 56, candidates 5
+  request 1 278 ms (pays the Redis timeout), requests 2-12 p50 20 ms, max 24 ms
+  /actuator/health/readiness  200 {"status":"UP"}   (readiness only checks the database)
+  /actuator/health            503                   (honest: Redis is a component and it is DOWN)
+  after redis started again, index key existed: 0   (the 30 s back-off is still open, DB scan in use)
+  after the 30 s back-off: 56 drivers in radius, index rebuilt to 120 members
+  the rebuilt index and the database scan returned the same 56 drivers in radius

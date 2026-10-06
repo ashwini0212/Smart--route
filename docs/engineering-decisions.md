@@ -185,3 +185,33 @@ Each entry: **Decision**, **Reason**, **Alternative**, **Tradeoff**. New entries
 - **Reason:** A route is always read whole; one row per route keeps writes and reads to one statement.
 - **Alternative:** `route_segment` rows; PostGIS LINESTRING.
 - **Tradeoff:** No SQL queries over individual segments (not needed yet). The table grows with every request; a retention policy is future work.
+
+## ED-32 Capacity is reserved under a pessimistic row lock, in a fixed lock order (Phase 7)
+- **Decision:** Assignment locks the order row (`SELECT ... FOR UPDATE`), then the driver row, re-checks every rule on the locked data, then writes. Always that order, never the reverse. The candidate ranking runs *before* that transaction, so the locked read is the first time the transaction sees the driver.
+- **Reason:** Two dispatchers assigning at the same instant must not put a driver over capacity or give one order to two drivers. `@Version` alone would detect it, but only as a late "concurrent modification" conflict after the work was done, and it cannot express "check the current load before deciding". `AssignmentConcurrencyTest` proves it: with the locks removed, the same tests fail with `ObjectOptimisticLockingFailureException` instead of a clear 422.
+- **Alternative:** Optimistic retries; one serialized dispatcher thread; `SERIALIZABLE` isolation.
+- **Tradeoff:** Concurrent assignments to the same driver serialize, and a lock is held for the length of the transaction. The fixed lock order is what prevents deadlock, so it is a rule future code must follow.
+
+## ED-33 Weighted score for driver choice, labelled heuristic (Phase 7)
+- **Decision:** score = (w_eta·priority × ETA term + w_workload × workload term + w_capacity × capacity-fit term) / Σ weights, each term in [0, 1]; weights live in `assignment_config` and an admin can change them at runtime.
+- **Reason:** "Nearest driver" ignores that a driver already carrying seven parcels is a bad choice, and that a 500 kg order should prefer the van it nearly fills over an empty truck. Measured on the seeded data (100 orders, fleet not saturated): the configured weights spread the work over 52 drivers instead of 30, standard deviation of deliveries per driver 1.13 vs 1.95 and busiest driver 4 vs 8, at the cost of 36 s more mean pickup ETA (2.7 vs 2.1 min). With 400 orders, where the fleet saturates, the difference nearly disappears (stdev 2.69 vs 2.79).
+- **Alternative:** A single objective (ETA); an optimal matching (Hungarian algorithm, O(n³)) over all waiting orders.
+- **Tradeoff:** It optimizes nothing provably. The weights are judgement, not a result; this is why the API labels the ranking `[HEURISTIC]` and returns the full score breakdown so a dispatcher can see why a driver was chosen.
+
+## ED-34 Greedy auto-dispatch, one transaction per order (Phase 7)
+- **Decision:** Waiting orders leave a priority queue (priority, then deadline, then age) and each takes the best available driver; the choice is never revisited. Each order is assigned in its own transaction, and if its top candidate was taken meanwhile the next two are tried.
+- **Reason:** A dispatcher's run must not fail as a whole, and an order decided in milliseconds is worth more than a globally optimal matching computed over stale positions. One failure costs one order.
+- **Alternative:** Hungarian algorithm over the whole batch (optimal for a fixed snapshot, O(n³), all-or-nothing); min-cost flow.
+- **Tradeoff:** An urgent order can take a driver a later order needed more; the result depends on the processing order. Both are stated in the API response (`"algorithm": "greedy by priority queue [HEURISTIC]"`).
+
+## ED-35 One reversed-graph Dijkstra for all driver ETAs (Phase 7)
+- **Decision:** ETAs to a pickup come from a single Dijkstra on the reversed road graph, started at the pickup and stopped once every candidate node is settled. Each snapshot carries its reversed graph. The auto-dispatcher computes one full tree per warehouse and reuses it for every order of that warehouse.
+- **Reason:** n searches become one. The costs are exact travel times with current traffic (Dijkstra, optimal), not straight-line estimates. The candidate endpoint measures p50 18 ms / p95 27 ms with 105 drivers on shift (baseline authenticated GET: 5 ms).
+- **Alternative:** One Dijkstra or A* per driver; haversine distance as the ETA.
+- **Tradeoff:** Each snapshot costs a second graph in memory (O(V + E)). One-way streets make the direction matter: searching the forward graph from the pickup would answer "time *from* the warehouse", which is not the same number.
+
+## ED-36 Redis GEO as a pre-filter, with the database as the source of truth (Phase 7)
+- **Decision:** Driver positions are mirrored into a Redis GEO set to answer "who is within R metres?"; the index is rebuilt at startup and whenever it may be stale, and every candidate's state is re-read from PostgreSQL.
+- **Reason:** The radius query is the one step that would otherwise scan the whole driver table. Keeping the database authoritative means a Redis outage degrades speed, not correctness: measured with Redis stopped, the same 56 drivers in radius are found by a haversine scan (p50 20 ms after the first request pays the 250 ms timeout), and readiness stays UP.
+- **Alternative:** PostGIS with a GiST index (one less moving part, but a new extension and a schema change); scanning every driver.
+- **Tradeoff:** Two copies of position data. The index can lag by one commit; it is a pre-filter only, so a lag can at worst leave a driver out of one ranking.
