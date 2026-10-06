@@ -126,3 +126,33 @@ Each entry: **Decision**, **Reason**, **Alternative**, **Tradeoff**. New entries
 - **Alternative:** H2 in PostgreSQL mode.
 - **Tradeoff:** Tests need Docker and start in seconds instead of milliseconds; one container is shared by all tests.
 
+
+## ED-22 Short JWT access token + opaque rotating refresh token (Phase 5)
+- **Decision:** 15-minute HS256 access token (Spring Security resource server, Nimbus); 7-day random refresh token stored as a SHA-256 hash, rotated on every use, with family revocation on reuse.
+- **Reason:** API requests need no database lookup; logins can still be revoked (refresh tokens live in the database).
+- **Alternative:** Server sessions (simpler revocation, but sticky sessions or a shared store); long-lived JWTs (no revocation).
+- **Tradeoff:** A disabled user or changed role keeps their current access token for up to 15 minutes. Two tabs refreshing at the same instant can trip reuse detection and log the user out.
+
+## ED-23 Refresh token in an HttpOnly SameSite=Strict cookie, access token in memory (Phase 5)
+- **Decision:** The refresh token never appears in a response body; it is a cookie scoped to `/api/auth`. The access token is returned in JSON and kept in memory by the frontend.
+- **Reason:** XSS can't read an HttpOnly cookie, and SameSite=Strict stops cross-site requests from sending it, so CSRF tokens aren't needed.
+- **Alternative:** Both tokens in localStorage (readable by any injected script).
+- **Tradeoff:** Non-browser clients must handle cookies for refresh. A page reload needs one refresh call.
+
+## ED-24 HS256 with one shared secret (Phase 5)
+- **Decision:** Symmetric HMAC signing with `JWT_SECRET` (≥ 32 bytes, checked at startup).
+- **Reason:** One service issues and verifies its own tokens.
+- **Alternative:** RS256/ES256 key pair with a JWKS endpoint.
+- **Tradeoff:** If other services ever verify tokens they would need the signing secret too; then switch to an asymmetric key pair.
+
+## ED-25 Authorization in two layers, guarded by a build rule (Phase 5)
+- **Decision:** URL rules for public/authenticated/admin areas plus `@PreAuthorize` on each controller method; an ArchUnit rule fails the build if a write endpoint has none.
+- **Reason:** Ownership checks ("a driver sees only their own record") belong next to the endpoint; the build rule stops a new endpoint from silently being open to every logged-in user.
+- **Alternative:** Only URL patterns in one config class.
+- **Tradeoff:** Role lists are spread over controllers (kept consistent via constants in `Access`).
+
+## ED-26 In-memory token-bucket login limiter (Phase 5)
+- **Decision:** 5 attempts per minute per email and 20 per client IP, in process memory. Client IPs come from `X-Forwarded-For` only when the peer is a private-network proxy (Tomcat RemoteIpValve), and nginx overwrites that header.
+- **Reason:** Slows password guessing with no extra infrastructure; the higher IP limit avoids locking out an office behind one NAT address.
+- **Alternative:** Redis-backed limiter (correct across several app instances); account lockout (lets an attacker lock out real users).
+- **Tradeoff:** With N app instances the effective limit is N times higher. Moving to Redis is a new `RateLimiter` implementation.
