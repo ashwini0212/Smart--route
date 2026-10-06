@@ -1,0 +1,65 @@
+SmartRoute Phase 8: multi-stop sequencing measurements
+Date: 2026-10-06T12:58Z  Host: 4-vCPU cloud VM
+
+=== 1. Result quality: heuristic gap against the exact optimum ===
+java -cp benchmarks/target/classes:algorithms/target/classes com.smartroute.benchmarks.SequencingGapReport 30
+
+Picked up JAVA_TOOL_OPTIONS: -Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts -Djavax.net.ssl.trustStoreType=JKS -Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=44423 -Dhttp.nonProxyHosts=localhost|127.0.0.1|::1|127.*|0.*|::|169.254.*|api.anthropic.com|api-staging.anthropic.com|api-pr-preview.anthropic.com|mcp-proxy.anthropic.com|mcp-proxy-staging.anthropic.com|registry.npmjs.org|jsr.io|npm.jsr.io|pypi.org|files.pythonhosted.org|index.crates.io|proxy.golang.org|host.docker.internal|10.*|172.16.*|172.17.*|172.18.*|172.19.*|172.20.*|172.21.*|172.22.*|172.23.*|172.24.*|172.25.*|172.26.*|172.27.*|172.28.*|172.29.*|172.30.*|172.31.*|192.168.*|100.64.0.0/10|*.svc.cluster.local|*.svc.cluster.local -Djdk.http.auth.tunneling.disabledSchemes= -Djdk.http.auth.proxying.disabledSchemes=
+Heuristic gap against the exact optimum (travel time, synthetic 100x100 city)
+Each row: 30 random instances, open route (no return leg)
+stops  nearest neighbour gap %    + 2-opt gap %              exact ms           heuristic ms
+5      mean 4.6, max 33.7, 18/30 optimal mean 0.2, max 5.9, 29/30 optimal 0.11               0.07
+6      mean 3.6, max 16.0, 14/30 optimal mean 1.0, max 7.8, 21/30 optimal 0.13               0.02
+7      mean 7.2, max 30.9, 10/30 optimal mean 1.1, max 11.9, 23/30 optimal 0.08               0.02
+8      mean 7.8, max 39.4, 5/30 optimal mean 2.0, max 9.8, 16/30 optimal 0.13               0.06
+9      mean 5.8, max 24.7, 8/30 optimal mean 1.6, max 10.3, 19/30 optimal 0.27               0.02
+10     mean 7.6, max 31.5, 4/30 optimal mean 3.2, max 18.8, 15/30 optimal 0.55               0.02
+11     mean 6.9, max 32.0, 4/30 optimal mean 1.7, max 8.4, 17/30 optimal 1.37               0.04
+12     mean 7.8, max 32.7, 2/30 optimal mean 1.9, max 9.1, 13/30 optimal 2.71               0.03
+13     mean 11.1, max 36.7, 2/30 optimal mean 2.6, max 12.5, 10/30 optimal 7.32               0.05
+14     mean 10.5, max 35.0, 0/30 optimal mean 1.8, max 9.4, 14/30 optimal 16.36              0.04
+
+=== 2. Algorithm run time (JMH, 2 warmup + 3 measurement iterations, 1 fork) ===
+java -jar benchmarks/target/benchmarks.jar StopSequencing
+
+Benchmark                                           (stops)  Mode  Cnt   Score     Error  Units
+StopSequencingBenchmark.costMatrix                        8  avgt    3  35.206 ±  36.305  ms/op
+StopSequencingBenchmark.costMatrix                       10  avgt    3  34.845 ±  20.014  ms/op
+StopSequencingBenchmark.costMatrix                       12  avgt    3  46.760 ± 152.598  ms/op
+StopSequencingBenchmark.costMatrix                       14  avgt    3  45.793 ±  46.265  ms/op
+StopSequencingBenchmark.heldKarpExact                     8  avgt    3   0.088 ±   0.060  ms/op
+StopSequencingBenchmark.heldKarpExact                    10  avgt    3   0.572 ±   0.529  ms/op
+StopSequencingBenchmark.heldKarpExact                    12  avgt    3   2.903 ±   1.499  ms/op
+StopSequencingBenchmark.heldKarpExact                    14  avgt    3  15.223 ±  26.987  ms/op
+StopSequencingBenchmark.nearestNeighbourOnly              8  avgt    3  ≈ 10⁻⁴            ms/op
+StopSequencingBenchmark.nearestNeighbourOnly             10  avgt    3  ≈ 10⁻⁴            ms/op
+StopSequencingBenchmark.nearestNeighbourOnly             12  avgt    3  ≈ 10⁻⁴            ms/op
+StopSequencingBenchmark.nearestNeighbourOnly             14  avgt    3  ≈ 10⁻⁴            ms/op
+StopSequencingBenchmark.nearestNeighbourThenTwoOpt        8  avgt    3   0.001 ±   0.001  ms/op
+StopSequencingBenchmark.nearestNeighbourThenTwoOpt       10  avgt    3   0.002 ±   0.001  ms/op
+StopSequencingBenchmark.nearestNeighbourThenTwoOpt       12  avgt    3   0.004 ±   0.004  ms/op
+StopSequencingBenchmark.nearestNeighbourThenTwoOpt       14  avgt    3   0.005 ±   0.003  ms/op
+
+=== 3. End-to-end API latency: POST /api/routes/optimize ===
+ADMIN_PASSWORD=... python3 scripts/perf/optimize_latency.py 12   (docker compose, seeded data)
+
+Network: synthetic 100x100 grid (seed 42), 9998 nodes, 35677 edges
+12 requests per size, one sequential client
+
+stops strategy     p50 ms   p95 ms   sequencing ms (server)
+    3 AUTO (exact)     32.0     35.8                      0.0
+    3 HEURISTIC      39.3     56.6                      0.0
+    5 AUTO (exact)     48.1     52.1                      0.0
+    5 HEURISTIC      46.2     48.3                      0.0
+    8 AUTO (exact)     65.3     74.4                      0.0
+    8 HEURISTIC      74.4     80.6                      0.0
+   10 AUTO (exact)     79.9     82.8                      0.0
+   10 HEURISTIC      86.9    108.5                      0.0
+   12 AUTO (exact)     93.4    104.4                      2.5
+   12 HEURISTIC      87.6     96.1                      0.0
+   14 AUTO          106.9    128.2                      0.0
+   14 HEURISTIC      95.8    110.3                      0.0
+   16 AUTO          103.2    143.1                      0.0
+   16 HEURISTIC     109.1    116.5                      0.0
+   20 AUTO          132.5    158.1                      0.0
+   20 HEURISTIC     143.7    158.3                      0.0

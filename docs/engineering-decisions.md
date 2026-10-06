@@ -215,3 +215,21 @@ Each entry: **Decision**, **Reason**, **Alternative**, **Tradeoff**. New entries
 - **Reason:** The radius query is the one step that would otherwise scan the whole driver table. Keeping the database authoritative means a Redis outage degrades speed, not correctness: measured with Redis stopped, the same 56 drivers in radius are found by a haversine scan (p50 20 ms after the first request pays the 250 ms timeout), and readiness stays UP.
 - **Alternative:** PostGIS with a GiST index (one less moving part, but a new extension and a schema change); scanning every driver.
 - **Tradeoff:** Two copies of position data. The index can lag by one commit; it is a pre-filter only, so a lag can at worst leave a driver out of one ranking.
+
+## ED-37 Both an exact and a heuristic stop sequencer, with the threshold set by measurement (Phase 8)
+- **Decision:** Held-Karp (exact, O(n²·2ⁿ)) up to 12 stops, nearest neighbour + 2-opt above it; the client can force either and ask for both to see the gap. Every response carries `optimal` and the algorithm name.
+- **Reason:** Ordering stops is NP-hard, so there is no single right answer: small runs deserve a provably shortest order, big ones need an answer at all. The threshold is where the measurement put it, not where it felt right: exact costs 2.9 ms at 12 stops and 15 ms at 14, while the heuristic costs 0.004 ms and averages 2 % above optimal (worst case 19 %).
+- **Alternative:** Only the heuristic (simpler, never provably right); only exact (fails above ~16 stops); an external solver (OR-Tools) — a large dependency and nothing learned.
+- **Tradeoff:** Two code paths and two sets of tests. The heuristic's worst case is bad enough that a user must be told which one answered, which is why `optimal` is in the response rather than implied.
+
+## ED-38 Stops are ordered by travel cost; time windows are reported, not planned around (Phase 8)
+- **Decision:** Sequence by travel cost, then compute arrival times and list every stop that misses its deadline in `lateStops`. Capacity, by contrast, is enforced: exceeding it is a 422.
+- **Reason:** A dispatcher needs to know which promise is at risk; silently reordering to save one window, or dropping a stop, hides the problem. Capacity is physical — a parcel either fits or does not — so it is an error, not a note.
+- **Alternative:** Solving the vehicle-routing problem with time windows (a different, harder problem); penalizing late arrivals inside the cost function.
+- **Tradeoff:** The returned order can be late when another order would not have been. The docs and the field name say so; this phase does not claim to solve VRPTW.
+
+## ED-39 The optimize endpoint is rate-limited per user (Phase 8)
+- **Decision:** 20 optimizations per minute per user, reusing the Phase 5 token bucket; over that, 429 with `Retry-After`.
+- **Reason:** This is the one endpoint whose cost grows exponentially with input size: 20 stops at EXACT would be thousands of times a 10-stop request. A cap keeps one client from taking the CPU that serves everyone else.
+- **Alternative:** A work queue with a thread budget; no limit; rejecting large inputs outright (already done at 20 stops and 16 for exact).
+- **Tradeoff:** A legitimate bulk user hits the limit and must pace themselves; the limit is per instance, like the login limiter (ED-26).
