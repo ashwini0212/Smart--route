@@ -6,11 +6,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://smartroute-api.onrender.com/api/:path*"
+      "destination": "https://smartroute-api-wlhf.onrender.com/api/:path*"
     },
     {
       "source": "/actuator/health",
-      "destination": "https://smartroute-api.onrender.com/actuator/health"
+      "destination": "https://smartroute-api-wlhf.onrender.com/actuator/health"
     },
     {
       "source": "/(.*)",
