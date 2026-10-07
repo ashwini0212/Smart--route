@@ -32,6 +32,10 @@ Delivery companies continuously decide which driver takes an order, which route 
 | Benchmarks | JMH suite for the algorithms and eight scripts in `scripts/perf/` for the running system: route and request latency layer by layer, multi-stop optimize, auto-dispatch, event and live-stream delay, database plans at a synthetic 100k orders, and a concurrent load test. Every number below comes from one of them; raw output in [docs/benchmarks](docs/benchmarks). See [Phase 13](docs/phases/phase-13-performance.md) |
 | Algorithms | Adjacency-list graph, BFS, iterative DFS, Kosaraju SCC, Dijkstra (point-to-point, one-to-many), A* with haversine heuristics, alternative routes (penalty method), bounded-heap Top-K, exact and heuristic stop sequencing, deterministic synthetic city generator; 116 unit tests. See [Phase 2](docs/phases/phase-2-graph-core.md) |
 
+## Deployment
+
+The same Compose stack runs on one server behind Caddy (automatic HTTPS), with a GitHub Actions job that redeploys every green `main`. Setup, costs, measured memory and what is simulated on a public site: [docs/deployment.md](docs/deployment.md).
+
 ## Tech stack
 
 Java 21, Spring Boot 4, Maven · PostgreSQL 17 · Redis 8 · Apache Kafka 4 (KRaft) · React 19, TypeScript, Vite, Tailwind CSS 4, Vitest · Docker Compose · GitHub Actions · Anthropic Java SDK (the optional assistant only)

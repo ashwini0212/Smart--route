@@ -1,0 +1,30 @@
+# The public edge. Caddy obtains and renews the TLS certificate for {$SITE_ADDRESS} on its own.
+#
+# /api and /actuator/health go straight to the backend rather than through nginx, for two reasons:
+#   1. One proxy hop. Caddy discards any X-Forwarded-For the client sent and writes the real client IP,
+#      and the backend trusts that header only from a private-network peer. With Caddy -> nginx -> backend,
+#      nginx would overwrite it with Caddy's address and every visitor would share one login rate limit.
+#   2. Server-sent events (/api/tracking/stream). Caddy flushes text/event-stream responses immediately;
+#      nginx buffers proxied responses by default, which would delay live positions.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	@backend path /api/* /actuator/health /actuator/health/*
+	handle @backend {
+		reverse_proxy backend:8080
+	}
+
+	handle {
+		reverse_proxy frontend:80
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

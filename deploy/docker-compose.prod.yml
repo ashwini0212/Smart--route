@@ -1,0 +1,67 @@
+# Production overlay for a single server (see docs/deployment.md).
+#
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml --env-file .env up -d --build
+#
+# What it changes from the local stack:
+#   - Caddy becomes the only public entry point (ports 80 and 443) and gets a Let's Encrypt certificate
+#     for SITE_ADDRESS by itself. No other container publishes a port, not even on 127.0.0.1.
+#   - Caddy routes /api and /actuator/health straight to the backend and everything else to the nginx
+#     static site, so the backend still sees exactly one proxy hop (see deploy/Caddyfile for why).
+#   - Every service restarts on failure and on reboot, and the JVMs get explicit memory caps so the
+#     whole stack fits a 4 GB server.
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      # A domain name pointing at this server, e.g. smartroute.example.com or 203-0-113-7.sslip.io.
+      # ":80" serves plain HTTP with no certificate (only for trying the overlay out locally).
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro  # relative to the project directory (the repo root), not this file
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+
+  postgres:
+    restart: unless-stopped
+    ports: !reset []
+
+  redis:
+    restart: unless-stopped
+    ports: !reset []
+
+  kafka:
+    restart: unless-stopped
+    ports: !reset []
+    environment:
+      # The image defaults to a 1 GB heap; one broker with 7 small topics needs far less.
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+
+  backend:
+    restart: unless-stopped
+    ports: !reset []
+    mem_limit: 1g
+    environment:
+      # The browser only ever talks to https://SITE_ADDRESS, so that is the one allowed origin.
+      CORS_ALLOWED_ORIGINS: ${PUBLIC_URL:?set PUBLIC_URL in .env}
+      REFRESH_COOKIE_SECURE: "true"
+      DEPLOY_ENV: production
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ${LOGGING_STRUCTURED_FORMAT_CONSOLE:-}
+
+  frontend:
+    restart: unless-stopped
+    ports: !reset []
+
+volumes:
+  caddy-data:
+  caddy-config:
