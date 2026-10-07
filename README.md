@@ -2,6 +2,8 @@
 
 A logistics platform that assigns delivery orders to drivers, computes shortest and fastest routes on a road graph, sequences multi-stop deliveries, and streams driver movement to a dispatcher dashboard.
 
+**Live demo: https://smart-route-amber-three.vercel.app** (fictional demo data; runs on free plans, so the first load after a quiet spell takes up to a minute while the backend wakes up).
+
 > **Project status: all 15 phases complete.** Foundation, the graph algorithm core, road-data import, snapping, benchmarks, the order/fleet/warehouse domain on PostgreSQL, login with role-based access, the routing API with a Redis cache, driver assignment, multi-stop optimization, domain events on Kafka, live tracking (positions, a server-sent event stream, delay alerts, recalculation on traffic changes), the dispatcher dashboard, metrics, an analytics API, a measured performance pass, the optional read-only assistant and a final quality gate (security, honesty and code-quality audits, [Phase 15](docs/phases/phase-15-quality-gate.md)) exist; see [the plan](docs/phase-0-plan.md). This README only describes what exists today.
 
 ![The dispatcher dashboard](docs/images/phase-11-dashboard.png)
@@ -34,7 +36,7 @@ Delivery companies continuously decide which driver takes an order, which route 
 
 ## Deployment
 
-Free tiers only: the frontend on Vercel, the backend and Redis on Render, PostgreSQL on Neon and Kafka on Aiven (all events on one topic, because the free Kafka plan allows five). `render.yaml` and `frontend/vercel.json` hold the configuration. The step-by-step guide, every environment variable, memory measured under a 512 MB limit, and what the free plans cost in behaviour (cold starts, Kafka powering off when idle) are in [docs/deployment.md](docs/deployment.md).
+Live at https://smart-route-amber-three.vercel.app, with the API at https://smartroute-api-wlhf.onrender.com. Free tiers only: the frontend on Vercel, the backend and Redis on Render, PostgreSQL on Neon and Kafka on Aiven (all events on one topic, because the free Kafka plan allows five). `render.yaml` and `frontend/vercel.json` hold the configuration. The step-by-step guide, every environment variable, memory measured under a 512 MB limit, and what the free plans cost in behaviour (cold starts, Kafka powering off when idle) are in [docs/deployment.md](docs/deployment.md).
 
 ## Tech stack
 
