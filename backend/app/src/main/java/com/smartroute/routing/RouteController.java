@@ -1,6 +1,5 @@
 package com.smartroute.routing;
 
-import com.smartroute.algorithms.graph.GraphNode;
 import com.smartroute.common.security.Access;
 import com.smartroute.common.security.CurrentUser;
 import com.smartroute.common.web.PageResponse;
@@ -81,12 +80,17 @@ class RouteController {
     }
 
     @GetMapping("/routes/{id}")
+    // Any logged-in user: the service decides whose route this is, and answers 404 rather than 403 so that
+    // ids cannot be probed.
+    @PreAuthorize(Access.ANY_USER)
     @Operation(summary = "A stored route (your own, or any if you are staff or a viewer)")
     RouteResponse get(@PathVariable long id) {
         return history.get(id, CurrentUser.require());
     }
 
     @GetMapping("/routes")
+    // Any logged-in user: the query is scoped to the caller, so this returns only their own history.
+    @PreAuthorize(Access.ANY_USER)
     @Operation(summary = "Your route history, newest first")
     PageResponse<RouteResponse> mine(@RequestParam(defaultValue = "0") @Min(0) int page,
                                      @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
@@ -94,19 +98,17 @@ class RouteController {
     }
 
     @GetMapping("/routing/network")
+    // Any logged-in user: a driver's app needs the network's bounds and traffic version to know whether the
+    // route it holds was computed against the current graph. It exposes sizes and bounds, no road data.
+    @PreAuthorize(Access.ANY_USER)
     @Operation(summary = "The road network in use: source, size, bounds, traffic version")
     NetworkResponse network() {
         RoadNetwork network = networks.current();
-        double minLat = Double.MAX_VALUE, minLon = Double.MAX_VALUE, maxLat = -Double.MAX_VALUE, maxLon = -Double.MAX_VALUE;
-        for (GraphNode node : network.graph().nodes()) {
-            minLat = Math.min(minLat, node.latitude());
-            maxLat = Math.max(maxLat, node.latitude());
-            minLon = Math.min(minLon, node.longitude());
-            maxLon = Math.max(maxLon, node.longitude());
-        }
+        RoadNetwork.Bounds bounds = network.bounds();
         return new NetworkResponse(network.version(), network.source(), network.synthetic(),
                 network.graph().nodeCount(), network.graph().edgeCount(), network.traffic().size(),
-                new NetworkResponse.Bounds(minLat, minLon, maxLat, maxLon), network.builtAt());
+                new NetworkResponse.Bounds(bounds.minLatitude(), bounds.minLongitude(),
+                        bounds.maxLatitude(), bounds.maxLongitude()), network.builtAt());
     }
 
     @PutMapping("/routing/traffic")

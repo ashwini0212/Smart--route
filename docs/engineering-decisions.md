@@ -349,7 +349,7 @@ Each entry: **Decision**, **Reason**, **Alternative**, **Tradeoff**. New entries
 - **Tradeoff:** The response is larger and the same sentences travel on every request, and a changed query means editing prose in a Java file rather than only SQL.
 
 ## ED-59 A delivery is attributed to the driver on the order, not to its assignment rows (Phase 12)
-- **Decision:** The fleet and ETA queries count a completion once, against `delivery_order.driver_id`, and pick the one assignment that was in force with a correlated `ORDER BY created_at DESC, id DESC LIMIT 1`.
+- **Decision:** The fleet and ETA queries count a completion once, against `delivery_order.driver_id`, and pick the one assignment that was in force with a correlated `ORDER BY created_at DESC, id DESC LIMIT 1` (rewritten as a `JOIN LATERAL` in Phase 13 — see ED-65).
 - **Reason:** Reassignment and auto-dispatch retries leave several `assignment` rows per order (1,953 rows for 388 orders in the demo database). Joining `assignment` to `order_status_history` multiplied every delivery by its assignment count, which reported a driver with 24 deliveries on a day the whole fleet delivered 45. The bug was invisible against test fixtures, where each order is assigned once.
 - **Alternative:** `COUNT(DISTINCT order_id)` (fixes the count, leaves the per-order duration and ETA joins wrong); a `DISTINCT ON (order_id)` subquery (PostgreSQL-specific, and still needs the tie-break); recording the delivering driver on the status-history row (a schema change that would not fix the rows already written).
 - **Tradeoff:** The queries are longer, each one carries a CTE and a correlated subquery, and they now depend on `delivery_order.driver_id` being set — which the regression test asserts, and which the test fixture had to start doing before two of its own assertions were honest.
@@ -431,3 +431,41 @@ Each entry: **Decision**, **Reason**, **Alternative**, **Tradeoff**. New entries
 - **Reason:** The loop's behaviour — round caps, failed tools, what gets recorded — is this project's logic and needs tests that are deterministic and free. But replacing the vendor entirely would leave the mapping code (tool specs out, content blocks back) unexecuted until the first real question, so one test exercises it against recorded bodies on `localhost`: no key, no network, no cost, and it still catches a wrong field name.
 - **Alternative:** Calling the real API in tests (money, flakiness, and a key in CI); mocking the SDK's own types (tests that pass while the request body is wrong); no adapter test at all (what the first live question would then be testing).
 - **Tradeoff:** The recorded bodies are a snapshot of the API's shape and will not notice if it changes. The SDK's own types would fail to deserialize a genuinely incompatible response, and the version is pinned.
+
+## ED-73 Every endpoint states its authorization rule, reads included (Phase 15)
+- **Decision:** The ArchUnit rule that required `@PreAuthorize` on writes now covers `@GetMapping` too. Reads that really are open to any logged-in user say `@PreAuthorize(Access.ANY_USER)` instead of saying nothing; only `AuthController` is exempt.
+- **Reason:** With writes-only coverage, a read with no annotation fell back to "any authenticated user" silently, and the audit found one where that was wrong: `GET /api/admin/assignment-config` said `STAFF` while the URL rule said `ADMIN`, so the two rules disagreed and only the stricter one happened to win. An explicit rule on every endpoint makes "open on purpose" and "forgotten" look different in review.
+- **Alternative:** Rely on the URL-pattern rules in `SecurityConfig` alone (one place to look, but a new controller under a new path inherits nothing); deny by default at the method level (safer, and a larger change than this phase should make).
+- **Tradeoff:** Ten more annotations that say the obvious. That is the point of them.
+
+## ED-74 The API document is public by default and can be closed (Phase 15)
+- **Decision:** `/v3/api-docs` and Swagger UI stay open by default and are restricted to `ADMIN` with `API_DOCS_PUBLIC=false`. `ApiDocsClosedTest` boots the context with the switch off.
+- **Reason:** The document lists every endpoint, parameter and DTO. Open is right for a stack bound to localhost, which is how this project is run and reviewed; it is the wrong default anywhere a stranger can reach the port. A switch with a test is cheaper than deciding for every deployment.
+- **Alternative:** Always admin-only (a reviewer clicking the Swagger link in the README gets a 401); always open (the document becomes a map for anyone who finds the port).
+- **Tradeoff:** A deployment has to remember to set it. `.env.example` and the compose file say so next to the setting.
+
+## ED-75 One user may hold four live streams; the fifth closes the oldest (Phase 15)
+- **Decision:** `LiveStream` tracks connections per user and, on the fifth, completes that user's oldest one.
+- **Reason:** Each SSE connection is a held HTTP connection and a copy of every frame. Nothing else limited how many one token could open, so a loop in a client — or a stolen token — could hold as many as the server had threads. Closing the oldest instead of refusing the newest keeps a reconnecting browser working, because the stale connection is usually the abandoned one.
+- **Alternative:** Refuse the newest (breaks the reconnect case); a global cap (one user could still take all of it); rely on the reverse proxy (not present in development, and nothing in the repo would show it).
+- **Tradeoff:** A user with five genuine tabs loses the oldest one's stream. Four was chosen as "a few tabs, not a loop", not measured.
+
+## ED-76 One per-user limiter, configured per endpoint (Phase 15)
+- **Decision:** `common.ratelimit.PerUserLimiter` holds the token bucket, the bounded key map and the exception; the assistant (10/min) and multi-stop optimization (20/min) limiters are one-line subclasses.
+- **Reason:** The two classes were copies that differed in a number and a message. The next copy would have been the one that drifted.
+- **Alternative:** Leave the duplication (two files to change for one bug); a single bean with a map of endpoint names to limits (indirection for two entries).
+- **Tradeoff:** The login limiter stays separate, deliberately: it keys on the email being guessed, not on a logged-in user, and its limits come from configuration.
+
+## ED-77 The outbox reports how many pending events have failed, not why (Phase 15)
+- **Decision:** `GET /api/events/outbox` gained `failing`: pending rows whose `last_error` is set. The error text itself stays in the log.
+- **Reason:** `last_error` was written on every failed publish and read by nothing, so a relay that kept failing looked exactly like a relay with a backlog. A count tells the two apart; the message is an exception string, and those do not belong in a response body (the project rule against exposing internals applies to admins too).
+- **Alternative:** Return the last error message (more useful, and an exception string over HTTP); delete the column's getter (cements the gap the audit found).
+- **Tradeoff:** An admin who sees `failing > 0` still has to open the log for the reason.
+
+## ED-78 Known scale limits, and the redesign that would lift them (Phase 15)
+- **Decision:** Record the limits Phase 0 promised to file here, with what was measured about each.
+- **Reason:** They are stated in the phase docs where they were found; Phase 0 said they would also be here, and the audit noticed they were not.
+- **The limits:** (1) Every instance holds the whole road graph and its reversed copy in memory, and rebuilds both on every traffic change (O(V + E)). Fine for a city; a country needs routing as its own service, partitioned by region. (2) Assignment safety relies on PostgreSQL row locks on the driver row; under very high dispatch volume those locks are the hotspot, and partitioning dispatch by zone is the usual answer. (3) The delay and recalculation sweep costs 35–55 ms per active driver (Phase 10) and runs on one instance; hundreds of active drivers need it sharded or made incremental. (4) The outbox relay and the live stream are single-instance by design (Phase 9, Phase 10); a second instance would double-relay (covered by idempotent consumers) and would not see the first instance's SSE clients.
+- **Alternative:** Build any of these now (a portfolio project serving one city on one box would be paying for scale it cannot demonstrate).
+- **Tradeoff:** None of the redesigns has been built or measured, so this is a list of known limits, not a scalability claim.
+

@@ -60,14 +60,16 @@ public class EventStreamService {
     public OutboxStatus outboxStatus() {
         long pending = outbox.countByPublishedAtIsNull();
         long rows = Math.max(outbox.estimatedRowCount(), pending);
-        return new OutboxStatus(pending, rows - pending, Instant.now());
+        long failing = outbox.countByPublishedAtIsNullAndLastErrorIsNotNull();
+        return new OutboxStatus(pending, rows - pending, failing, clock.instant());
     }
 
     /**
      * How many events are waiting to be published; a growing {@code pending} means the relay is stuck.
      * {@code publishedEstimate} comes from the table's statistics, so it moves in steps as autovacuum
-     * refreshes them and can be out by a few per cent.
+     * refreshes them and can be out by a few per cent. {@code failing} counts the pending rows that have
+     * already failed a publish, which is the difference between a backlog and a stuck relay.
      */
-    public record OutboxStatus(long pending, long publishedEstimate, Instant at) {
+    public record OutboxStatus(long pending, long publishedEstimate, long failing, Instant at) {
     }
 }

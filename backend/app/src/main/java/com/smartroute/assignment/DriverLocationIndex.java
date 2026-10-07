@@ -105,8 +105,19 @@ class DriverLocationIndex implements ApplicationRunner {
         }
     }
 
-    /** Replaces the whole index with every located driver from the database. */
-    void rebuild() {
+    /**
+     * Replaces the whole index with every located driver from the database.
+     *
+     * <p>Synchronized, and it clears {@code stale} before it reads rather than after it writes. Both matter
+     * because {@link #within} calls this from whatever request thread notices the index is stale: two threads
+     * rebuilding at once could interleave one's {@code delete} between the other's {@code delete} and
+     * {@code add}, leaving the index short of drivers, and a driver missing from the index is simply never
+     * offered as a candidate — silently, with nothing to re-trigger a rebuild. Clearing the flag first means a
+     * failure arriving mid-rebuild wins and the next lookup tries again, rather than being overwritten by the
+     * rebuild that did not see it.
+     */
+    synchronized void rebuild() {
+        stale = false;
         Map<String, Point> members = new HashMap<>();
         for (DriverCandidateView d : drivers.allLocated()) {
             members.put(Long.toString(d.id()), new Point(d.longitude(), d.latitude()));
@@ -115,7 +126,6 @@ class DriverLocationIndex implements ApplicationRunner {
         if (!members.isEmpty()) {
             redis.opsForGeo().add(KEY, members);
         }
-        stale = false;
         log.info("Driver location index rebuilt with {} drivers", members.size());
     }
 

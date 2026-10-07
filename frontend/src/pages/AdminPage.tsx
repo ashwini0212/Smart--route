@@ -143,9 +143,11 @@ export function AdminPage() {
               <p className="text-xs text-slate-500">
                 Outbox: {outbox.data.pending.toLocaleString()} pending, about{' '}
                 {outbox.data.publishedEstimate.toLocaleString()} published (an estimate from table statistics).{' '}
-                {outbox.data.pending > 100
-                  ? 'A pending count this high means the relay is behind.'
-                  : 'The relay is keeping up.'}
+                {outbox.data.failing > 0
+                  ? `${outbox.data.failing.toLocaleString()} of them have already failed a publish at least once, so the relay is stuck rather than busy; the error is in the server log.`
+                  : outbox.data.pending > 100
+                    ? 'A pending count this high means the relay is behind.'
+                    : 'The relay is keeping up.'}
               </p>
             )}
           </div>

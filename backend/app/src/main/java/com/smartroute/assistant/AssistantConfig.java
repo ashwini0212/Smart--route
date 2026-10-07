@@ -28,16 +28,29 @@ class AssistantConfig {
 
     private static final Logger log = LoggerFactory.getLogger(AssistantConfig.class);
 
+    /**
+     * The HTTP client, as its own bean so that Spring closes it.
+     *
+     * <p>{@code AnthropicClient} is closeable: it owns an OkHttp connection pool and dispatcher threads. Spring
+     * infers {@code destroyMethod} from the declared bean type, so building the client inside the model bean's
+     * method and returning the model meant nothing ever closed it — harmless in one long-lived process, a
+     * thread leak per context in a test suite that builds several.
+     */
     @Bean
     @Conditional(Configured.class)
-    AssistantModel assistantModel(AssistantProperties properties) {
-        AnthropicClient client = AnthropicOkHttpClient.builder()
+    AnthropicClient anthropicClient(AssistantProperties properties) {
+        return AnthropicOkHttpClient.builder()
                 .apiKey(properties.apiKey())
                 // A dispatcher is waiting on this request, and the loop may make several. Generous enough for
                 // a thinking model, short enough that a hung provider does not hold a servlet thread for the
                 // SDK's default ten minutes.
                 .timeout(Duration.ofSeconds(90))
                 .build();
+    }
+
+    @Bean
+    @Conditional(Configured.class)
+    AssistantModel assistantModel(AnthropicClient client, AssistantProperties properties) {
         log.info("Assistant enabled with model {} (effort {}, up to {} tool rounds)",
                 properties.model(), properties.effort(), properties.maxToolRounds());
         return new AnthropicAssistantModel(client, properties);

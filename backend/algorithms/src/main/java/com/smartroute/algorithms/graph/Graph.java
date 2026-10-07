@@ -68,14 +68,7 @@ public final class Graph {
      * "how far is every node <em>to</em> X", which is what driver ETA to a pickup needs. O(V + E).
      */
     public Graph reversed() {
-        Builder builder = builder();
-        nodes.forEach(n -> builder.addNode(n.latitude(), n.longitude()));
-        for (List<Edge> edges : outgoing) {
-            for (Edge edge : edges) {
-                builder.addEdge(edge.reversed());
-            }
-        }
-        return builder.build();
+        return rebuild(Edge::reversed, false);
     }
 
     /**
@@ -83,12 +76,21 @@ public final class Graph {
      * This is how traffic is applied: copy-on-write into a new graph, never mutation. O(V + E).
      */
     public Graph mapEdges(UnaryOperator<Edge> transform) {
+        return rebuild(transform, true);
+    }
+
+    /**
+     * One copy of the graph with every edge passed through {@code transform}. Both public copies above are
+     * this: same nodes, one pass over the edges, a new immutable graph. O(V + E), and it runs on the traffic
+     * swap path, which is why there is one loop rather than two near-identical ones to keep in step.
+     */
+    private Graph rebuild(UnaryOperator<Edge> transform, boolean requireSameEndpoints) {
         Builder builder = builder();
         nodes.forEach(n -> builder.addNode(n.latitude(), n.longitude()));
         for (List<Edge> edges : outgoing) {
             for (Edge edge : edges) {
                 Edge mapped = transform.apply(edge);
-                if (mapped.from() != edge.from() || mapped.to() != edge.to()) {
+                if (requireSameEndpoints && (mapped.from() != edge.from() || mapped.to() != edge.to())) {
                     throw new IllegalArgumentException("mapEdges must not change an edge's endpoints");
                 }
                 builder.addEdge(mapped);

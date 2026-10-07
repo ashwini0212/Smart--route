@@ -1,6 +1,7 @@
 package com.smartroute.tracking;
 
 import com.smartroute.common.error.ApiException;
+import com.smartroute.common.security.CurrentUser;
 import com.smartroute.common.security.Access;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -55,7 +56,7 @@ class TrackingController {
     @PreAuthorize(Access.STAFF_OR_VIEWER)
     @Operation(summary = "Server-sent event stream of driver movement, status changes, delays and recalculations")
     SseEmitter stream() {
-        return stream.open();
+        return stream.open(CurrentUser.require().id());
     }
 
     @GetMapping("/stream/clients")

@@ -278,6 +278,8 @@ export interface SystemEventResponse {
 export interface OutboxStatus {
   pending: number
   publishedEstimate: number
+  /** Pending events that have already failed a publish: a backlog and a stuck relay look the same without it. */
+  failing: number
   at: string
 }
 

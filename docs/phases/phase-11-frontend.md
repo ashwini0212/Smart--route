@@ -14,7 +14,7 @@
 | `ui/` | The design system: button, field, table, badge, pagination, the three list states, the caveat note |
 | `auth/` | Who is signed in, restored on load from the refresh cookie |
 | `app/` | The route table, the layout, and the role guard |
-| 10 pages | Login, Dashboard, Live map, Orders, Order detail, Drivers, Vehicles, Route planner, My deliveries, Events, Admin |
+| 11 pages | Login, Dashboard, Live map, Orders, Order detail, Drivers, Vehicles, Route planner, My deliveries, Events, Admin |
 
 The eleventh page in the plan is Analytics. It is **not** here: the endpoints behind it are Phase 12, and a page of made-up charts is exactly what this project is not for. `/analytics` currently redirects to the dashboard.
 
@@ -93,7 +93,7 @@ The suite uses stubs, so the dashboard was also driven in a real browser (headle
 | Live map | 124 driver markers, "stream open", 155 frames in the first few seconds |
 | Orders | 20 rows, filters and paging |
 | Route planner | A* route 13.2 km / 20 min, `optimal`, 2,550 nodes settled; Held-Karp ordered 3 stops and said so |
-| Events | the recorded stream with payloads, outbox 7 pending / 245,114 published |
+| Events | the recorded stream with payloads, outbox 7 pending / 245,114 published (an exact count then; the field became `publishedEstimate` in Phase 13) |
 | Admin | the sweep ran on demand: 48 drivers in 1,305 ms, 1 delay alert |
 
 Two things this found, both fixed above: the 403 from the CORS allow-list when the dev server came up on a different port, and the trace id shown for an ordinary 404.

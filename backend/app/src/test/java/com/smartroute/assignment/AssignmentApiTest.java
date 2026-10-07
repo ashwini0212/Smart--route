@@ -341,8 +341,12 @@ class AssignmentApiTest extends ApiTestSupport {
         String config = """
                 {"etaWeight":1,"workloadWeight":0,"capacityWeight":0,"etaCapSeconds":1800,
                  "searchRadiusMeters":5000,"maxCandidates":50,"maxActiveDeliveries":8}""";
-        putJson("/api/admin/assignment-config", config, users.token(Role.DISPATCHER)).andExpect(status().isForbidden());
+        String dispatcher = users.token(Role.DISPATCHER);
+        putJson("/api/admin/assignment-config", config, dispatcher).andExpect(status().isForbidden());
         getUrl("/api/admin/assignment-config", users.token(Role.VIEWER)).andExpect(status().isForbidden());
+        // The path lives under /api/admin/, which the URL rule gates on ADMIN. The annotation used to say
+        // STAFF, so a dispatcher was refused by one rule while the other said yes; this holds them together.
+        getUrl("/api/admin/assignment-config", dispatcher).andExpect(status().isForbidden());
         putJson("/api/admin/assignment-config", config).andExpect(status().isOk())
                 .andExpect(jsonPath("$.etaWeight").value(1.0));
         putJson("/api/admin/assignment-config", config.replace("\"etaWeight\":1", "\"etaWeight\":0"))

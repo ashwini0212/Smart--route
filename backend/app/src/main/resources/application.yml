@@ -70,6 +70,10 @@ smartroute:
     bootstrap-admin:
       email: ${ADMIN_EMAIL:}
       password: ${ADMIN_PASSWORD:}
+    # The OpenAPI document and Swagger UI describe every endpoint, parameter and DTO. True here because this
+    # stack runs on localhost and reading the API is the first thing anyone does; set it false anywhere that
+    # is reachable by someone who is not supposed to have the map, and they become admin-only.
+    public-api-docs: ${API_DOCS_PUBLIC:true}
   routing:
     # Folder with nodes.csv/edges.csv (scripts/osm). Empty: generate the synthetic city.
     dataset-directory: ${ROAD_NETWORK_DIR:}
@@ -179,7 +183,10 @@ springdoc:
 info:
   app:
     name: SmartRoute
-    description: Intelligent real-time logistics and route optimization platform
+    # Public at /actuator/info, so it is held to the same rule as everything else here: the stop
+    # ordering is exact or heuristic and the event path is half a second behind by design, so
+    # neither "intelligent" nor "real-time" belongs in it. Same wording as the OpenAPI document.
+    description: "Logistics and route platform: shortest and fastest routes, assignment, multi-stop ordering"
     version: '@project.version@'
 
 logging:

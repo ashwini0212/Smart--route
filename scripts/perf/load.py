@@ -75,7 +75,8 @@ def drive(token: str, stop_at: float, seed: int, latencies: list, statuses: dict
     conn = http.client.HTTPConnection(HOST, PORT)
     rnd = random.Random(seed)
     mine: list[float] = []
-    mine_statuses: dict[int, int] = {}
+    # Keys are HTTP status codes, or a string describing a client-side failure.
+    mine_statuses: dict[int | str, int] = {}
     headers = {"Content-Type": "application/json", "Authorization": "Bearer " + token}
     while time.perf_counter() < stop_at:
         method, path, body = request_for(WORKLOAD, rnd)
@@ -91,6 +92,7 @@ def drive(token: str, stop_at: float, seed: int, latencies: list, statuses: dict
             status = f"client error: {type(error).__name__}"
         mine.append((time.perf_counter() - started) * 1000)
         mine_statuses[status] = mine_statuses.get(status, 0) + 1
+    conn.close()  # one socket per client thread, and a 64-client run holds 64 of them
     with lock:
         latencies.extend(mine)
         for status, count in mine_statuses.items():
@@ -111,6 +113,15 @@ def main() -> None:
     for thread in threads:
         thread.join()
     elapsed = time.perf_counter() - started
+
+    if not latencies:
+        # Reporting zero requests is a result; an IndexError three lines down is not.
+        print(f"{WORKLOAD}: {CLIENTS} clients for {elapsed:.1f} s")
+        print(f"  requests            0 — nothing completed. Responses: "
+              f"{dict(sorted(statuses.items(), key=lambda kv: str(kv[0])))}")
+        print("  Is the server running on "
+              f"{HOST}:{PORT}?")
+        return
 
     latencies.sort()
     def pct(p):

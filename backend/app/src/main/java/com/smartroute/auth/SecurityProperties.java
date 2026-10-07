@@ -17,7 +17,8 @@ public record SecurityProperties(
         @DefaultValue({"http://localhost:5173", "http://localhost:3000"}) List<String> corsAllowedOrigins,
         @DefaultValue LoginRateLimit loginRateLimit,
         @DefaultValue("12") int bcryptStrength,
-        @DefaultValue BootstrapAdmin bootstrapAdmin) {
+        @DefaultValue BootstrapAdmin bootstrapAdmin,
+        @DefaultValue("true") boolean publicApiDocs) {
 
     /**
      * @param secret          HMAC-SHA256 key, at least 32 bytes

@@ -45,10 +45,6 @@ public record ToolArgs(Map<String, Object> values) {
         }
     }
 
-    public long requiredNumber(String key) {
-        return number(key).orElseThrow(() -> new ToolArgumentException(key + " is required"));
-    }
-
     /** An integer clamped to a range, with a default when absent. Out of range is an error, not a clamp. */
     public int bounded(String key, int fallback, int min, int max) {
         long value = number(key).orElse((long) fallback);
@@ -71,10 +67,6 @@ public record ToolArgs(Map<String, Object> values) {
         } catch (NumberFormatException e) {
             throw new ToolArgumentException(key + " must be a number, got: " + value);
         }
-    }
-
-    public double requiredDecimal(String key) {
-        return decimal(key).orElseThrow(() -> new ToolArgumentException(key + " is required"));
     }
 
     /** Reads an enum by name, case-insensitively, and lists the valid names when it is wrong. */

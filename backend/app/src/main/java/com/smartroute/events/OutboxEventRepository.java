@@ -16,6 +16,16 @@ interface OutboxEventRepository extends JpaRepository<OutboxEvent, UUID> {
     long countByPublishedAtIsNull();
 
     /**
+     * Pending events that have already failed at least once.
+     *
+     * <p>{@code lastError} was written on every failed publish and read by nothing: a relay that kept failing
+     * looked exactly like a relay with a backlog. This is the smallest honest way to tell them apart — a count,
+     * not the message, because the message is an exception string and those belong in the log, not in a
+     * response body.
+     */
+    long countByPublishedAtIsNullAndLastErrorIsNotNull();
+
+    /**
      * An exact count of what has been published. Only the tests ask for this: it is a sequential scan, which
      * is why the endpoint reports {@link #estimatedRowCount()} minus the pending backlog instead.
      */

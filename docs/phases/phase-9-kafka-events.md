@@ -83,14 +83,14 @@ The envelope is assembled from the stored columns at send time rather than kept 
 Retries are blocking: the listener waits (200 ms, 400 ms, 800 ms) and tries the same record again, so the partition's order is preserved while one record is being retried. After four attempts the record is published to `<topic>.DLT` with headers describing the failure, and the consumer moves on — otherwise one bad message stops every later event on that partition, which `laterEventsAboutOneOrderAreNotHeldUpByAnEarlierBadRecord` shows is not what happens.
 
 ### 3.8 Operational honesty: the outbox is observable
-`GET /api/events/outbox` returns `pending` and `published`. A growing `pending` is the symptom of every relay problem (broker down, serialization error, a crashed scheduler), and it was how both bugs in STEP 7 were found. Published rows are kept for 7 days as the record of what was actually sent, then deleted hourly by `OutboxMaintenance`.
+`GET /api/events/outbox` returns `pending` (an exact count) and, since Phase 13, `publishedEstimate` — PostgreSQL's row estimate minus the backlog, not a count (ED-64) — and, since Phase 15, `failing`, the pending rows that have already failed a publish. A growing `pending` is the symptom of every relay problem (broker down, serialization error, a crashed scheduler), and it was how both bugs in STEP 7 were found. Published rows are kept for 7 days as the record of what was actually sent, then deleted hourly by `OutboxMaintenance`.
 
 ## STEP 4: Contracts
 
 | Method | Path | Who | Result |
 |---|---|---|---|
-| GET | `/api/events` | staff or viewer | recorded events, newest first; filter by `eventType`, or by `aggregateType` + `aggregateId` |
-| GET | `/api/events/outbox` | ADMIN | `{pending, published, at}` |
+| GET | `/api/events` | staff or viewer | recorded events, newest first; filter by `eventType`, or by `aggregateType` + `aggregateId`; a slice (`hasNext`, no total) since Phase 13 |
+| GET | `/api/events/outbox` | ADMIN | `{pending, publishedEstimate, failing, at}` (field names as of Phase 15) |
 
 `SystemEventResponse`: `id, eventId, eventType, eventVersion, topic, aggregateType, aggregateId, summary, payload, correlationId, occurredAt, recordedAt`.
 
@@ -106,7 +106,7 @@ The envelope on the wire:
 
 Settings (`smartroute.events.*`): `enabled` (false turns publishing and consuming off; the outbox is still written, because that is part of the transaction), `relay-interval` (default 500 ms), `keep-published` (default 7 days). `EVENTS_RELAY_INTERVAL` is passed through by docker-compose.
 
-## STEP 5: Tests (333 total, 27 new)
+## STEP 5: Tests (333 total, 27 new — Phase 10 adds 36 and reports 370, so one of the two counts is off by one; 370 is the figure the later phases add up from)
 - `EventEnvelopeReaderTest` (7): every field read; unknown type rejected; newer version rejected; older version accepted; a missing envelope field rejected; a null `correlationId` allowed; nested payload values kept as JSON.
 - `OutboxTest` (8, no broker): order creation writes one event with its payload, topic and key; the full lifecycle writes exactly four events and no `IN_TRANSIT` one; unassignment is its own event on the assignment topic; a driver location update is keyed by driver; an event is rolled back with the change it describes; appending outside a transaction fails; the outbox endpoint counts pending rows and is admin-only; retention keeps a row published now.
 - `EventConsumersIdempotencyTest` (4): the second delivery does no work; another consumer group handles the same event on its own; four concurrent deliveries do the work once; a failing consumer leaves no claim behind.
@@ -147,7 +147,7 @@ Two deliberate omissions: the relay is written for one instance (two would both 
 6. An event arrives with a `version` the consumer does not know. Why refuse it instead of reading the fields you recognise?
 7. Retries here are blocking rather than re-queueing the record. What does blocking buy, and what is the cost if the failure lasts a minute?
 8. What do you put in a dead-letter topic, and who is supposed to look at it? What happens to the partition while one record is being retried?
-9. `GET /api/events/outbox` returns `pending` and `published`. What would a `pending` that keeps growing tell you, and what would you check first?
+9. `GET /api/events/outbox` returns `pending`, `publishedEstimate` and `failing`. What would a `pending` that keeps growing tell you, and what would you check first?
 10. Events are readable ~470 ms after the change, and 59 ms if the relay polls ten times as often. Would you lower the interval, or change the design? What does each option cost?
 11. Two instances of this application run the same relay. What breaks, what survives, and how would you fix it?
 12. `smartroute.events.enabled=false` stops publishing but still writes the outbox. Why keep writing it?

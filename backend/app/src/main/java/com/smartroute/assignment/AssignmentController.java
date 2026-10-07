@@ -71,8 +71,10 @@ class AssignmentController {
         return assignments.forOrder(orderId);
     }
 
+    // Under /api/admin/, which SecurityConfig gates on ADMIN: the annotation said STAFF, so a dispatcher was
+    // refused by the URL rule anyway. Both now say the same thing, and a test holds them together.
     @GetMapping("/admin/assignment-config")
-    @PreAuthorize(Access.STAFF)
+    @PreAuthorize(Access.ADMIN)
     @Operation(summary = "Current scoring weights and limits")
     AssignmentSettings getConfig() {
         return config.current();

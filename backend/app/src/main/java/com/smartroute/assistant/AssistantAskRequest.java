@@ -11,5 +11,8 @@ import jakarta.validation.constraints.Size;
  * remove that risk — nothing here can — which is why the model has no tool that writes.
  */
 public record AssistantAskRequest(
-        @NotBlank @Size(max = 1000) String question) {
+        @NotBlank @Size(max = MAX_CHARACTERS) String question) {
+
+    /** Bean Validation needs a constant, so this is the limit rather than a setting. */
+    public static final int MAX_CHARACTERS = 1000;
 }

@@ -206,7 +206,8 @@ def build_script(runs: int, scale: int, try_sql: str | None = None) -> str:
     if scale:
         parts.append(LOAD % {"rows": scale})
     if try_sql:
-        parts.append(open(try_sql).read())
+        with open(try_sql) as handle:
+            parts.append(handle.read())
         parts.append("ANALYZE delivery_order;\nANALYZE order_status_history;\nANALYZE assignment;")
     # Values the queries need, resolved once: a query should be timed, not its fixture.
     parts.append(FIXTURE)
@@ -276,9 +277,10 @@ def main() -> None:
         print("inserted inside a transaction that is rolled back. They are not real deliveries.")
     if args.try_sql:
         print(f"Candidate DDL applied (and rolled back) from {args.try_sql}:")
-        for line in open(args.try_sql).read().splitlines():
-            if line.strip():
-                print(f"    {line.strip()}")
+        with open(args.try_sql) as handle:
+            for line in handle.read().splitlines():
+                if line.strip():
+                    print(f"    {line.strip()}")
     print(f"Each query: 1 warm-up + {args.runs} measured runs, EXPLAIN (ANALYZE, BUFFERS).\n")
 
     blocks = parse(run_psql(args.psql, build_script(args.runs, args.scale, args.try_sql)), args.runs)
