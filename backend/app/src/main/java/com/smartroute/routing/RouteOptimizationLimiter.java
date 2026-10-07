@@ -1,11 +1,9 @@
 package com.smartroute.routing;
 
-import com.smartroute.common.ratelimit.RateLimitExceededException;
-import com.smartroute.common.ratelimit.TokenBucketRateLimiter;
+import com.smartroute.common.ratelimit.PerUserLimiter;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
-import java.time.Duration;
 
 /**
  * Caps how often one user may ask for a multi-stop optimization.
@@ -15,23 +13,9 @@ import java.time.Duration;
  * usable while making it impossible for one client to occupy the CPU with exact runs.
  */
 @Component
-public class RouteOptimizationLimiter {
-
-    private final TokenBucketRateLimiter perUser;
+public class RouteOptimizationLimiter extends PerUserLimiter {
 
     RouteOptimizationLimiter(Clock clock) {
-        this.perUser = new TokenBucketRateLimiter(20, Duration.ofMinutes(1), 10_000, clock);
-    }
-
-    void check(long userId) {
-        Duration wait = perUser.tryAcquire(Long.toString(userId));
-        if (!wait.isZero()) {
-            throw new RateLimitExceededException("Too many optimization requests; try again shortly", wait);
-        }
-    }
-
-    /** Forgets all usage (tests). */
-    public void reset() {
-        perUser.clear();
+        super(20, "Too many optimization requests; try again shortly", clock);
     }
 }

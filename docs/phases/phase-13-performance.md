@@ -34,7 +34,7 @@ Phases 3 and 6 to 10 each measured their own piece, so the algorithms, the route
 ## STEP 3: What the measurements found
 
 ### 3.1 Four analytics queries read the whole history table (fixed)
-At the demo size every query is under 3 ms and nothing is visible. With 100k orders and 405k history rows spread over a year — the shape this schema reaches after a few months of real use — the analytics endpoints each took 34–64 ms, every one of them a sequential scan of `order_status_history`, because nothing indexed the two columns they all filter on: the status that was reached and when. `V7__analytics_indexes.sql` adds `(to_status, changed_at)` on the history and `(created_at)` on orders:
+At the demo size every query the application still issues is under 3 ms and nothing is visible (the two it no longer issues, the outbox and event-log counts, cost 73 and 53 ms even there — see §3 of the raw output). With 100k orders and 405k history rows spread over a year — the shape this schema reaches after a few months of real use — the analytics endpoints each took 34–64 ms, every one of them a sequential scan of `order_status_history`, because nothing indexed the two columns they all filter on: the status that was reached and when. `V7__analytics_indexes.sql` adds `(to_status, changed_at)` on the history and `(created_at)` on orders:
 
 | Query (100k orders, 7-day window) | Before | After |
 |---|---|---|
@@ -85,7 +85,7 @@ All on one 4-core Intel Xeon @ 2.80 GHz with 15 GB RAM, with PostgreSQL 17, Redi
 | Auto-dispatch of 100 orders | 2,146 ms (21 ms per order), 49 of 105 drivers used, busiest 4 | `assignment_workload.py` |
 | Same with ETA only | 1,926 ms, 31 drivers used, busiest 8, mean pickup ETA 2.4 min against 2.8 | same run |
 | Order change → event readable | p50 487 ms (500 ms relay interval) | `event_latency.py` |
-| Driver position → dashboard frame | p50 457 ms, p95 705 ms, 12.3 frames/s from 120 simulated drivers | `live_latency.py` |
+| Driver position → dashboard frame | p50 457 ms, p95 705 ms, 12.3 frames/s, driver simulator on (frames counted, drivers not) | `live_latency.py` |
 | Every hot query, demo database, idle | all ≤ 2.3 ms | `db_queries.py` |
 | Analytics at 100k orders, after V7 | 1.3–35.9 ms | `db_queries.py --scale 100000` |
 
@@ -111,7 +111,7 @@ stops — which is where the Phase 8 threshold of 12 came from, and this run agr
 
 A\*'s advantage over Dijkstra shrinks as the graph grows (1.8× → 1.5×) because the haversine heuristic is
 weak on a uniform grid where every edge is equivalent; on a real road network with motorways it would be
-worth more. The error bars on the longer rows are wide (±20–50 %) because four cores are shared with
+worth more. The error bars on the longer rows are wide (±15–65 %, and ±104 % on the 12-stop heuristic row) because four cores are shared with
 everything else on this box, so the ratios are the result and the absolute numbers are this machine's.
 
 ### Under concurrent load
@@ -169,7 +169,7 @@ A fourth was not a measurement error but a missed client: changing `/api/events`
 ## STEP 7: Review notes
 
 - **Nothing was tuned that was not measured.** No connection-pool sizes, no JVM flags, no Hibernate batch settings: none of them appeared in any measurement as a limit, and changing them would have been decoration.
-- **What is still slow, and known:** the two analytics queries that join every completion in the window to its order (36 ms and 25 ms at 100k orders), the delay sweep at 35–55 ms per driver (Phase 10, unchanged — it will not scale to hundreds of active drivers on one instance), and the cached route path at 6 ms against a 5 ms target.
+- **What is still slow, and known:** the two analytics queries that join every completion in the window to its order (36 ms and 25 ms at 100k orders), the delay sweep at 35–55 ms per driver (Phase 10, unchanged — it will not scale to hundreds of active drivers on one instance), and the cached route path at p95 9.4 ms against a p95 target of 5 ms — the p50 is 6.2 ms, and an earlier draft of this line compared that p50 to the p95 target, which understated the miss. The history write is 2–3 ms of it, so dropping the write would not reach the target either.
 - **What this phase cannot tell you:** anything about a real road network. Every routing number here is the synthetic grid, where A* costs about 2 ms; on a city with millions of nodes the algorithm would dominate the request rather than the plumbing, and the cache would matter much more than it does here.
 - **The scripts are not a load-testing framework.** `load.py` has no ramp-up, no think time, and no correction for coordinated omission, and it runs on the same four cores as the database it is loading. It is enough to see where latency starts climbing; it is not a capacity statement.
 

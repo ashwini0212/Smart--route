@@ -62,7 +62,7 @@ Overview / ThroughputDay[] / FleetUsage / EtaAccuracy      each with definitions
 `assignedToDeliveredMinutes` reports samples, p50, p90 and the mean together. One mean over delivery times hides the shape completely: the p90 is the number a dispatcher cares about, and `samples` is what says whether either is worth reading.
 
 ### 3.4 A delivery is attributed to the driver on the order, not to its assignment rows
-This is the bug the real data found, and it is the most interesting thing in this phase. Reassignment and the auto-dispatch retries leave several `assignment` rows on one order — 1,953 rows for 388 orders in the demo database. The first fleet query joined `assignment` to `order_status_history`, so it counted one delivery once per assignment row, and reported a driver with 24 deliveries on a day the whole fleet delivered 45. The query now counts a completion once, against `delivery_order.driver_id`, and picks the single assignment in force at the time with a correlated `ORDER BY created_at DESC, id DESC LIMIT 1`. After the fix: 23 drivers with deliveries, 1.96 each, highest 4. `AnalyticsApiTest.aDeliveryIsCountedOnceEvenWhenItsOrderWasAssignedSeveralTimes` locks it. See ED-59.
+This is the bug the real data found, and it is the most interesting thing in this phase. Reassignment and the auto-dispatch retries leave several `assignment` rows on one order — 1,953 rows for 388 orders in the demo database. The first fleet query joined `assignment` to `order_status_history`, so it counted one delivery once per assignment row, and reported a driver with 24 deliveries on a day the whole fleet delivered 45. The query now counts a completion once, against `delivery_order.driver_id`, and picks the single assignment in force at the time with a correlated `ORDER BY created_at DESC, id DESC LIMIT 1` (rewritten as a `JOIN LATERAL` in Phase 13 — see ED-65). After the fix: 23 drivers with deliveries, 1.96 each, highest 4. `AnalyticsApiTest.aDeliveryIsCountedOnceEvenWhenItsOrderWasAssignedSeveralTimes` locks it. See ED-59.
 
 ### 3.5 The ETA comparison is labelled an upper bound, because that is what it is
 "Actual" is the time from assignment to the driver reporting `PICKED_UP`. That includes finishing earlier deliveries, loading and any waiting, none of which the routing ETA ever claimed to predict. So the difference is an upper bound on the routing error, and the response says so. See ED-60.
@@ -89,7 +89,7 @@ The filter runs at the end of the chain (`LOWEST_PRECEDENCE - 10`) so the line c
 
 `days` outside 1–90 is a 400. A driver's token gets a 403 on all four analytics endpoints: a driver has no reason to read the fleet's performance table.
 
-## STEP 5: Tests (389 backend, 69 frontend; 18 + 13 new)
+## STEP 5: Tests (388 backend, 69 frontend; 18 + 13 new)
 
 | Test | What it pins down |
 |---|---|
@@ -119,10 +119,10 @@ The suite uses Testcontainers and stubs, so this was also run against the real s
 
 ## STEP 7: Review notes
 
-- The analytics queries are raw SQL through `JdbcTemplate`, not JPA. These are aggregates with CTEs, `percentile_cont` and a correlated subquery; expressing them as JPQL or Criteria would be longer and would still be SQL underneath, and the entity model has no use for the result shapes.
+- The analytics queries are raw SQL through `JdbcTemplate`, not JPA. These are aggregates with CTEs, `percentile_cont` and a correlated subquery (a `JOIN LATERAL` since Phase 13); expressing them as JPQL or Criteria would be longer and would still be SQL underneath, and the entity model has no use for the result shapes.
 - `AnalyticsService` is `@Transactional(readOnly = true)` and touches nothing. The page it feeds is deliberately unable to change anything.
 - Both fixed Phase 11 bugs came from reading the enums the backend serves rather than from a failing test, which is the useful lesson: a frontend test with a hand-written fixture happily locks in the wrong contract. `DriversPage.test.tsx` now asserts the four enum values explicitly so the next drift fails a test.
-- What is not here: tracing (no OpenTelemetry exporter, only a correlation id), alerting rules, and a Grafana dashboard. The endpoint a Prometheus server would scrape exists and is tested; the server is not part of this repo.
+- What is not here: tracing (no OpenTelemetry exporter, only a correlation id), alerting rules, a Grafana dashboard, and a SmartRoute-owned Kafka consumer-lag metric (Phase 0 asked for one; the Kafka client may register its own `kafka.consumer.*` meters, which has not been checked at runtime). The endpoint a Prometheus server would scrape exists and is tested; the server is not part of this repo.
 
 ## Interview questions
 

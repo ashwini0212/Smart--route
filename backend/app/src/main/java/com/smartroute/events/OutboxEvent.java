@@ -133,8 +133,4 @@ class OutboxEvent {
     int getAttempts() {
         return attempts;
     }
-
-    String getLastError() {
-        return lastError;
-    }
 }

@@ -82,7 +82,9 @@ public class OrderService {
     @Transactional
     public OrderResponse transition(long id, OrderStatus target, String reason) {
         if (target == OrderStatus.ASSIGNED || target == OrderStatus.CREATED) {
-            throw new IllegalArgumentException("Use assign/unassign to move an order to " + target);
+            // ApiException, not IllegalArgumentException: the handler maps the latter to a 500, and a caller
+            // reaching this public method with the wrong target has made a 422 mistake, not crashed the server.
+            throw ApiException.businessRule("Use assign/unassign to move an order to " + target);
         }
         DeliveryOrder order = load(id);
         Long driver = order.getDriverId();

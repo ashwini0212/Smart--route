@@ -62,8 +62,10 @@ function envelope(payload: unknown, now: number): EventFrame | null {
  *
  * Kept as a pure function, separate from the connection, because this is the part with rules in it: a position
  * older than the one on screen is dropped (the server guards this too, but after a reconnection a client that
- * trusts arrival order will still flicker), and the lists are capped so a dashboard left open overnight does
- * not grow without limit.
+ * trusts arrival order will still flicker), and the alert, recalculation and status lists are capped so a
+ * dashboard left open overnight does not grow without limit. The position map is not capped: it holds one
+ * entry per driver the server has reported, so it is bounded by the fleet rather than by how long the page
+ * has been open.
  */
 export function applyFrame(state: LiveState, event: string, payload: unknown): LiveState {
   const now = Date.now()

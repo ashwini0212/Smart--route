@@ -180,6 +180,7 @@ numbers carry wide error bars on this shared VM, so treat them as the right orde
 precise values.
 
 ## STEP 7: Review notes (bugs found by running it)
+- **Not measured:** the gap against visiting stops in creation order, which Phase 0 §1.3 listed as a success criterion. Only heuristic-against-exact was run, so nothing here claims how much better than the naive order either algorithm is. (Noted in the Phase 15 audit.)
 - **Every optimize request answered 400.** Jackson 3 fails on a JSON `null` (or absent field) for a
   primitive by default, and `returnToStart` was a `boolean`. The field is now `Boolean` with
   `returnsToStart()` for the default, which also reads better: absent means "no return leg".

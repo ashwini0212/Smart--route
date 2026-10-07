@@ -55,7 +55,7 @@ Give dispatchers a system that makes these decisions with explainable algorithms
 | Persona | Role | Goals | Pain points | What SmartRoute gives them |
 |---|---|---|---|---|
 | **Priya, Dispatcher** | `DISPATCHER` | Get every order assigned fast; keep urgent orders on time. | Manually comparing driver distances; can't see who is overloaded. | Ranked top-K driver candidates with a score breakdown, one-click assign, live map, delay alerts. |
-| **Ravi, Driver** | `DRIVER` | Know the next stop and the route; update delivery status. | Poor stop order means backtracking. | Optimized stop sequence for *his own* deliveries, status updates (picked up / delivered / failed). |
+| **Ravi, Driver** | `DRIVER` | Know the next stop and the route; update delivery status. | Poor stop order means backtracking. | Stop sequence computed for *his own* deliveries (exact up to 12 stops, `[HEURISTIC]` above), status updates (picked up / delivered / failed). |
 | **Meera, Operations Admin** | `ADMIN` | Manage users, warehouses, vehicles, scoring weights. | Changing rules requires a developer. | Admin page for users/roles and configurable assignment weights; system-event log. |
 | **Arjun, Ops Analyst / Manager** | `VIEWER` | Understand performance and delays. | No single view of KPIs. | Read-only dashboard, analytics, and (optional) AI assistant that answers from real data. |
 
@@ -253,7 +253,7 @@ Running Dijkstra with SQL queries per edge would mean thousands of round trips p
 
 ### 7.6 Scalability: what actually scales and what doesn't
 - **Scales horizontally:** stateless REST instances; Kafka consumers in the same group split partitions.
-- **Limits:** each instance holds a full graph copy (fine for a city, ~tens of MB; not for a country). Assignment concurrency relies on DB row locking, which becomes a hotspot at very high volume. Both limits and their redesign (partition by zone, routing as a separate service) go in `docs/engineering-decisions.md`.
+- **Limits:** each instance holds a full graph copy (fine for a city, ~tens of MB; not for a country). Assignment concurrency relies on DB row locking, which becomes a hotspot at very high volume. Both limits and their redesign (partition by zone, routing as a separate service) go in `docs/engineering-decisions.md` — done in Phase 15 as ED-78.
 
 ### 7.7 Proposed repository structure (one change from your outline)
 
@@ -441,7 +441,7 @@ Each phase follows your 10-step process (explain → architecture → DSA → co
 | **8. Multi-stop optimization** | Distance matrix, NN + 2-opt, Held-Karp, capacity/time-window checks, `optimize` API, benchmark: heuristic gap vs exact. | FR-16, FR-17 | Bitmask DP, NP-hardness, heuristics vs optimality. |
 | **9. Kafka events** | Event envelope (id, type, version, correlationId), outbox relay, producers/consumers, idempotency, retries with backoff, DLT, Testcontainers Kafka tests. | FR-20 | Partitions, ordering, consumer groups, at-least-once, dual writes. |
 | **10. Real-time tracking** | `[SIMULATION]` driver + traffic simulators, location consumer → Redis, SSE stream, delay detection, route recalculation on traffic change. | FR-18, 19, 21, 22 | Event-driven design, back-pressure, out-of-order events. |
-| **11. Frontend** | Design system components, all 11 pages, Leaflet live map, loading/error/empty states, form validation, frontend tests. | FR-19, all UI | React data fetching, state, accessibility. |
+| **11. Frontend** | Design system components, all 11 pages (13 by Phase 14: the analytics and assistant pages were added later), Leaflet live map, loading/error/empty states, form validation, frontend tests. | FR-19, all UI | React data fetching, state, accessibility. |
 | **12. Observability + analytics** | Correlation IDs, JSON logs, Micrometer metrics, analytics endpoints and page. | FR-23 | Metrics design, percentiles. |
 | **13. Performance pass** | Full benchmark suite (route, assignment, DB queries, cache), README performance section from real runs. | — | Profiling, measurement honesty. |
 | **14. AI assistant (optional)** | Tool-calling agent over read-only services; FACTS / RECOMMENDATIONS / UNCERTAINTY output; disabled cleanly without an API key; tests with recorded tool results. | FR-24 | LLM tool use, grounding, prompt design. |

@@ -31,7 +31,7 @@ describe('Events page', () => {
   it('pages through an uncounted log, and says so rather than inventing a total', async () => {
     const calls = stubFetch({
       '/api/events': (_init, url) => json(logPage(url.includes('page=1') ? 1 : 0, !url.includes('page=1'))),
-      '/api/events/outbox': () => json({ pending: 3, publishedEstimate: 299000, at: '2026-10-06T12:00:00Z' }),
+      '/api/events/outbox': () => json({ pending: 3, publishedEstimate: 299000, failing: 0, at: '2026-10-06T12:00:00Z' }),
     })
     renderWithProviders(<EventsPage />, { user: testUser('ADMIN') })
 
@@ -50,7 +50,7 @@ describe('Events page', () => {
   it('shows the outbox depth to an admin, with the published total marked as approximate', async () => {
     stubFetch({
       '/api/events': () => json(logPage(0, false)),
-      '/api/events/outbox': () => json({ pending: 3, publishedEstimate: 299000, at: '2026-10-06T12:00:00Z' }),
+      '/api/events/outbox': () => json({ pending: 3, publishedEstimate: 299000, failing: 0, at: '2026-10-06T12:00:00Z' }),
     })
     renderWithProviders(<EventsPage />, { user: testUser('ADMIN') })
 

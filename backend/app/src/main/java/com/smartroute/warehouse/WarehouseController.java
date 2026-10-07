@@ -31,12 +31,14 @@ class WarehouseController {
     }
 
     @GetMapping
+    @PreAuthorize(Access.ANY_USER)
     @Operation(summary = "List all warehouses")
     List<WarehouseResponse> list() {
         return service.list();
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize(Access.ANY_USER)
     @Operation(summary = "Get a warehouse")
     WarehouseResponse get(@PathVariable long id) {
         return service.get(id);

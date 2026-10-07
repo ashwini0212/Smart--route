@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.Map;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -206,6 +207,14 @@ class AuthorizationTest extends ApiTestSupport {
     void validHandMadeTokenIsAcceptedSoTheNegativeTestsAreMeaningful() throws Exception {
         getUrl("/api/orders", sign(encoder, claims("smartroute", Instant.now(), Duration.ofMinutes(5))))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void theApiDocumentIsOpenHereAndCanBeClosed() throws Exception {
+        // API_DOCS_PUBLIC defaults to true, which is why this passes without a token: the document is a map
+        // of every endpoint, and that is a deliberate choice for a localhost demo, not an oversight.
+        // ApiDocsClosedTest runs the same request with the setting off.
+        mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk());
     }
 
     private static JwtClaimsSet claims(String issuer, Instant issuedAt, Duration ttl) {

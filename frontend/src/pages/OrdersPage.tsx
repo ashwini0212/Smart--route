@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '../api/client'
@@ -7,6 +7,7 @@ import type { CreateOrderRequest, OrderSearchParams } from '../api/endpoints'
 import type { OrderPriority, OrderStatus, VehicleType } from '../api/types'
 import { hasRole } from '../auth/context'
 import { useAuth } from '../auth/useAuth'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { Badge, Button, Card, Cell, EmptyState, ErrorState, Field, Input, Loading, Modal, PageHeader, Pagination, Select, Table } from '../ui'
 import { dateTime, humanize, orderStatusTone, priorityTone } from '../ui/format'
 
@@ -22,9 +23,14 @@ export function OrdersPage() {
   const [dispatchResult, setDispatchResult] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
+  // The driver-id box is typed into, and it is part of the query key, so the key uses a debounced copy: four
+  // keystrokes used to mean four server-side filtered queries. The input stays bound to the raw state.
+  const driverId = useDebouncedValue(filters.driverId ?? '')
+  const query = useMemo(() => ({ ...filters, driverId }), [filters, driverId])
+
   const list = useQuery({
-    queryKey: ['orders', filters],
-    queryFn: () => orders.search(filters),
+    queryKey: ['orders', query],
+    queryFn: () => orders.search(query),
   })
 
   const autoDispatch = useMutation({

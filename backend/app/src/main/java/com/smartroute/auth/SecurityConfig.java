@@ -5,6 +5,8 @@ import com.smartroute.common.security.CurrentUser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.security.authorization.AuthorityAuthorizationManager;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -52,7 +54,8 @@ class SecurityConfig {
     private static final int MIN_SECRET_BYTES = 32;
 
     @Bean
-    SecurityFilterChain apiSecurity(HttpSecurity http, ApiErrorSecurityHandlers errors) throws Exception {
+    SecurityFilterChain apiSecurity(HttpSecurity http, ApiErrorSecurityHandlers errors,
+                                    SecurityProperties properties) throws Exception {
         http
                 // No cookies authenticate API calls (bearer header only), so CSRF tokens add nothing there.
                 // The one cookie (refresh) is SameSite=Strict and scoped to /api/auth.
@@ -74,7 +77,16 @@ class SecurityConfig {
                         // Metrics name internal endpoints and show load; a scraper gets an admin token for them.
                         .requestMatchers("/actuator/prometheus", "/actuator/metrics", "/actuator/metrics/**")
                         .hasRole("ADMIN")
-                        .requestMatchers("/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**").permitAll()
+                        // The OpenAPI document and Swagger UI are a map of every endpoint, parameter and DTO.
+                        // Open by default because this is a demo stack bound to localhost and the first thing
+                        // anyone does is read the API; set API_DOCS_PUBLIC=false anywhere that is not that, and
+                        // they become admin-only. Swagger UI cannot send a bearer token for its own spec fetch,
+                        // so "authenticated" is not a middle option: it is public or it is for admins with a
+                        // token, which is what this switch chooses between.
+                        .requestMatchers("/v3/api-docs", "/v3/api-docs/**", "/swagger-ui.html", "/swagger-ui/**")
+                        .access(properties.publicApiDocs()
+                                ? (authentication, context) -> new AuthorizationDecision(true)
+                                : AuthorityAuthorizationManager.hasRole("ADMIN"))
                         .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/refresh", "/api/auth/logout").permitAll()
                         // Spring's error page: lets errors from public endpoints render instead of becoming 401.
                         .requestMatchers("/error").permitAll()

@@ -36,7 +36,9 @@ class AdminBootstrap implements ApplicationRunner {
             log.warn("No admin user exists. Set ADMIN_EMAIL and ADMIN_PASSWORD (or use the seed profile) to create one.");
             return;
         }
-        accounts.create(new CreateUserRequest(admin.email(), "Administrator", Role.ADMIN, null, admin.password()));
-        log.info("Created bootstrap admin {}", UserAccountService.normalizeEmail(admin.email()));
+        UserResponse created = accounts.create(
+                new CreateUserRequest(admin.email(), "Administrator", Role.ADMIN, null, admin.password()));
+        // The id, not the address: an email is personal data and the logging policy keeps it out of the log.
+        log.info("Created bootstrap admin from ADMIN_EMAIL, user id {}", created.id());
     }
 }

@@ -7,6 +7,7 @@ import com.tngtech.archunit.lang.ArchRule;
 import org.springframework.data.repository.Repository;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -52,13 +53,20 @@ class ArchitectureTest {
                             "com.smartroute.demo..", "com.smartroute.auth..");
 
     /**
-     * Every endpoint that changes data states who may call it. Forgetting the annotation would silently
-     * allow any logged-in user (even a VIEWER), so the build fails instead. Login/refresh/logout are the
-     * deliberate exception: they are what makes a caller authenticated in the first place.
+     * Every endpoint states who may call it, reads included.
+     *
+     * <p>It covered only writes until Phase 15, which meant a read endpoint with no rule failed nothing: it
+     * silently fell back to "any logged-in user", and the difference between that being deliberate and being
+     * forgotten was whether someone had written a comment. Reads that really are open to any logged-in user
+     * now say {@code @PreAuthorize(Access.ANY_USER)} instead of saying nothing.
+     *
+     * <p>Login, refresh and logout are the deliberate exception: they are what makes a caller authenticated
+     * in the first place.
      */
     @ArchTest
-    static final ArchRule writeEndpointsDeclareAnAuthorizationRule =
-            methods().that().areAnnotatedWith(PostMapping.class)
+    static final ArchRule endpointsDeclareAnAuthorizationRule =
+            methods().that().areAnnotatedWith(GetMapping.class)
+                    .or().areAnnotatedWith(PostMapping.class)
                     .or().areAnnotatedWith(PutMapping.class)
                     .or().areAnnotatedWith(DeleteMapping.class)
                     .or().areAnnotatedWith(PatchMapping.class)

@@ -77,6 +77,28 @@ class LiveStreamApiTest extends ApiTestSupport {
     }
 
     @Test
+    void oneUserCannotHoldUnlimitedConnections() throws Exception {
+        // Each connection is a held HTTP connection and a copy of every frame, and the same token can open
+        // them in a loop. The oldest is closed rather than the newest refused, so a reconnecting browser wins.
+        for (int i = 0; i < LiveStream.MAX_PER_USER + 3; i++) {
+            openStream(adminToken);
+        }
+
+        await().until(() -> stream.connectedClients() == LiveStream.MAX_PER_USER);
+    }
+
+    @Test
+    void twoUsersEachGetTheirOwnAllowance() throws Exception {
+        String dispatcher = users.token(Role.DISPATCHER);
+        for (int i = 0; i < LiveStream.MAX_PER_USER; i++) {
+            openStream(adminToken);
+            openStream(dispatcher);
+        }
+
+        await().until(() -> stream.connectedClients() == LiveStream.MAX_PER_USER * 2);
+    }
+
+    @Test
     void theHeartbeatKeepsAnIdleStreamOpen() throws Exception {
         MvcResult result = openStream(adminToken);
         await().until(() -> stream.connectedClients() == 1);

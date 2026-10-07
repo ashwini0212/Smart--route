@@ -58,26 +58,31 @@ class AssignmentConcurrencyTest extends ApiTestSupport {
     /** Runs all tasks at once; returns how many succeeded. Only business-rule/state errors count as failures. */
     private int runTogether(List<Callable<Object>> tasks) throws Exception {
         ExecutorService pool = Executors.newFixedThreadPool(tasks.size());
-        CountDownLatch start = new CountDownLatch(1);
-        List<Future<Object>> futures = new ArrayList<>();
-        for (Callable<Object> task : tasks) {
-            futures.add(pool.submit(() -> {
-                start.await();
-                return task.call();
-            }));
-        }
-        start.countDown();
-        int ok = 0;
-        for (Future<Object> f : futures) {
-            try {
-                f.get();
-                ok++;
-            } catch (java.util.concurrent.ExecutionException e) {
-                assertThat(e.getCause()).isInstanceOf(ApiException.class);
+        try {
+            CountDownLatch start = new CountDownLatch(1);
+            List<Future<Object>> futures = new ArrayList<>();
+            for (Callable<Object> task : tasks) {
+                futures.add(pool.submit(() -> {
+                    start.await();
+                    return task.call();
+                }));
             }
+            start.countDown();
+            int ok = 0;
+            for (Future<Object> f : futures) {
+                try {
+                    f.get();
+                    ok++;
+                } catch (java.util.concurrent.ExecutionException e) {
+                    assertThat(e.getCause()).isInstanceOf(ApiException.class);
+                }
+            }
+            return ok;
+        } finally {
+            // In a finally: a failing assertion above used to leave the pool's threads running for the rest
+            // of the suite.
+            pool.shutdownNow();
         }
-        pool.shutdown();
-        return ok;
     }
 
     @Test

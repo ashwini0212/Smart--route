@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { events } from '../api/endpoints'
 import { hasRole } from '../auth/context'
 import { useAuth } from '../auth/useAuth'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { Badge, Card, Cell, EmptyState, ErrorState, Field, Input, Loading, PageHeader, Pagination, Select, Table } from '../ui'
 import { dateTime, relative } from '../ui/format'
 
@@ -32,9 +33,13 @@ export function EventsPage() {
   const [page, setPage] = useState(0)
   const [expanded, setExpanded] = useState<number | null>(null)
 
+  // Debounced, not raw: the id is in the query key, so typing an order id used to fire one filtered query
+  // per keystroke.
+  const searchId = useDebouncedValue(aggregateId)
+
   const list = useQuery({
-    queryKey: ['events', eventType, aggregateId, page],
-    queryFn: () => events.search({ eventType, aggregateId, page, size: 20 }),
+    queryKey: ['events', eventType, searchId, page],
+    queryFn: () => events.search({ eventType, aggregateId: searchId, page, size: 20 }),
     refetchInterval: 15_000,
   })
   const outbox = useQuery({
@@ -54,8 +59,9 @@ export function EventsPage() {
       {admin && outbox.data && (
         <p className="mb-4 rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-700">
           Outbox: {outbox.data.pending.toLocaleString()} waiting to publish,{' '}
-          about {outbox.data.publishedEstimate.toLocaleString()} published. A pending count that keeps growing means the relay is
-          stuck, not that the system is busy.
+          about {outbox.data.publishedEstimate.toLocaleString()} published,{' '}
+          {outbox.data.failing.toLocaleString()} of the waiting ones have already failed once. A pending count that keeps
+          growing means the relay is stuck, not that the system is busy.
         </p>
       )}
 

@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class AssistantServiceTest {
 
     private static final AssistantProperties CONFIGURED =
-            new AssistantProperties(true, "test-key", "test-model", 1000, 3, "medium", 1000);
+            new AssistantProperties(true, "test-key", "test-model", 1000, 3, "medium");
 
     private final StubTool warehouses = new StubTool("list_warehouses", "{\"count\":2}");
 
@@ -133,7 +133,7 @@ class AssistantServiceTest {
 
     @Test
     void refusesToAnswerWhenTheFeatureIsNotConfigured() {
-        AssistantProperties off = new AssistantProperties(false, null, "test-model", 1000, 3, "medium", 1000);
+        AssistantProperties off = new AssistantProperties(false, null, "test-model", 1000, 3, "medium");
         AssistantService service = new AssistantService(off, java.util.Optional.empty(), List.of(warehouses),
                 JsonMapper.builder().build());
 

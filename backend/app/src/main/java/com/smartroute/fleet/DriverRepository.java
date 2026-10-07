@@ -17,8 +17,6 @@ interface DriverRepository extends JpaRepository<Driver, Long> {
 
     Page<Driver> findByStatus(DriverStatus status, Pageable pageable);
 
-    List<Driver> findByStatusIn(List<DriverStatus> statuses);
-
     /**
      * {@code SELECT ... FOR UPDATE}: a second transaction reserving capacity on the same driver waits here
      * until the first commits, then sees the updated load. Used only where a conflict is expected.

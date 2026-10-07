@@ -17,7 +17,6 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param maxToolRounds  how many times the model may ask for tools before it must answer. Each round is a
  *                       paid request, and a loop that never ends would be a loop that never stops charging
  * @param effort         how hard the model thinks: low, medium, high, xhigh, max
- * @param maxQuestionCharacters longest question accepted, so the input cost of one request is bounded
  */
 @ConfigurationProperties(prefix = "smartroute.assistant")
 public record AssistantProperties(
@@ -26,8 +25,7 @@ public record AssistantProperties(
         @DefaultValue("claude-opus-5-5") String model,
         @DefaultValue("4000") long maxTokens,
         @DefaultValue("6") int maxToolRounds,
-        @DefaultValue("medium") String effort,
-        @DefaultValue("1000") int maxQuestionCharacters) {
+        @DefaultValue("medium") String effort) {
 
     /** True when the feature can actually run. A flag without a key is not configured, it is half-configured. */
     public boolean configured() {

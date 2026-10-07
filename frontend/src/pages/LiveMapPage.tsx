@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { CircleMarker, MapContainer, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -7,6 +7,51 @@ import type { LivePosition } from '../api/types'
 import { useLiveStream } from '../hooks/useLiveStream'
 import { Badge, Card, Caveat, ErrorState, Loading, PageHeader } from '../ui'
 import { clockTime, coordinates, metres, relative, seconds } from '../ui/format'
+
+/**
+ * Marker styles, at module level and with the driver marker memoised.
+ *
+ * react-leaflet diffs `pathOptions` by identity, so a fresh object literal per render made Leaflet re-apply
+ * the same style to every marker on every frame — and a frame arrives per driver every two seconds. Hoisting
+ * the three constant styles and memoising the marker means a driver's marker only touches Leaflet when that
+ * driver's own position changes.
+ */
+const HUB_STYLE = { color: '#0f172a', fillColor: '#0f172a', fillOpacity: 0.9 }
+// Simulated positions are a different colour as well as labelled, so the map itself says so.
+const SIMULATED_STYLE = { color: '#b45309', fillColor: '#f59e0b', fillOpacity: 0.9 }
+const REPORTED_STYLE = { color: '#0369a1', fillColor: '#0ea5e9', fillOpacity: 0.9 }
+const ROUTE_STYLE = { color: '#7c3aed', weight: 4, opacity: 0.8 }
+
+const DriverMarker = memo(function DriverMarker({
+  position,
+  onSelect,
+}: {
+  position: LivePosition
+  onSelect: (driverId: number) => void
+}) {
+  const handlers = useMemo(
+    () => ({ click: () => onSelect(position.driverId) }),
+    [onSelect, position.driverId],
+  )
+  return (
+    <CircleMarker
+      center={[position.latitude, position.longitude]}
+      radius={6}
+      pathOptions={position.source === 'SIMULATION' ? SIMULATED_STYLE : REPORTED_STYLE}
+      eventHandlers={handlers}
+    >
+      <Popup>
+        <strong>Driver {position.driverId}</strong>
+        <br />
+        {coordinates(position.latitude, position.longitude)}
+        <br />
+        reported {relative(position.at)}
+        <br />
+        source {position.source}
+      </Popup>
+    </CircleMarker>
+  )
+})
 
 /**
  * The live map (FR-19).
@@ -19,6 +64,8 @@ import { clockTime, coordinates, metres, relative, seconds } from '../ui/format'
 export function LiveMapPage() {
   const live = useLiveStream()
   const [selected, setSelected] = useState<number | null>(null)
+  // Stable, so a frame about one driver does not re-render every other driver's marker.
+  const select = useCallback((driverId: number) => setSelected(driverId), [])
 
   const initial = useQuery({ queryKey: ['positions'], queryFn: () => tracking.positions() })
   const network = useQuery({ queryKey: ['network'], queryFn: () => routing.network() })
@@ -84,7 +131,7 @@ export function LiveMapPage() {
                     key={`hub-${hub.id}`}
                     center={[hub.latitude, hub.longitude]}
                     radius={7}
-                    pathOptions={{ color: '#0f172a', fillColor: '#0f172a', fillOpacity: 0.9 }}
+                    pathOptions={HUB_STYLE}
                   >
                     <Popup>
                       <strong>{hub.code}</strong>
@@ -94,34 +141,13 @@ export function LiveMapPage() {
                   </CircleMarker>
                 ))}
                 {positions.map((position) => (
-                  <CircleMarker
-                    key={position.driverId}
-                    center={[position.latitude, position.longitude]}
-                    radius={6}
-                    pathOptions={{
-                      // Simulated positions are a different colour as well as labelled, so the map itself says so.
-                      color: position.source === 'SIMULATION' ? '#b45309' : '#0369a1',
-                      fillColor: position.source === 'SIMULATION' ? '#f59e0b' : '#0ea5e9',
-                      fillOpacity: 0.9,
-                    }}
-                    eventHandlers={{ click: () => setSelected(position.driverId) }}
-                  >
-                    <Popup>
-                      <strong>Driver {position.driverId}</strong>
-                      <br />
-                      {coordinates(position.latitude, position.longitude)}
-                      <br />
-                      reported {relative(position.at)}
-                      <br />
-                      source {position.source}
-                    </Popup>
-                  </CircleMarker>
+                  <DriverMarker key={position.driverId} position={position} onSelect={select} />
                 ))}
                 {route.data?.legs.map((leg) => (
                   <Polyline
                     key={`${leg.fromSequence}-${leg.toSequence}`}
                     positions={leg.path.map(([lat, lon]) => [lat, lon] as [number, number])}
-                    pathOptions={{ color: '#7c3aed', weight: 4, opacity: 0.8 }}
+                    pathOptions={ROUTE_STYLE}
                   />
                 ))}
               </MapContainer>

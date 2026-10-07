@@ -90,6 +90,8 @@ services:
       SIMULATE_TRAFFIC: ${SIMULATE_TRAFFIC:-false}
       # The optional assistant (Phase 14). Off, and off again without a key: the API then answers 503 with
       # the reason and the Assistant page says which setting is missing.
+      # false makes /swagger-ui.html and /v3/api-docs admin-only.
+      API_DOCS_PUBLIC: ${API_DOCS_PUBLIC:-true}
       ASSISTANT_ENABLED: ${ASSISTANT_ENABLED:-false}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ASSISTANT_MODEL: ${ASSISTANT_MODEL:-claude-opus-5-5}

@@ -1,0 +1,28 @@
+# Dependency updates, weekly, grouped so one pull request carries a whole ecosystem's patch bumps.
+# This repository has no vulnerability scanner in CI (an NVD-backed check is slow and flaky in a free
+# runner); Dependabot's advisory alerts are what covers that gap, and the `github-actions` entry is here
+# because the workflow pins actions to mutable major tags.
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      backend-patches:
+        update-types: [patch, minor]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      frontend-patches:
+        update-types: [patch, minor]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

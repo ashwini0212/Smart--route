@@ -74,7 +74,7 @@ class AnthropicAssistantModelTest {
     @Test
     void mapsToolCallsAndTextBothWaysAndReplaysTheAssistantTurn() {
         AssistantProperties properties =
-                new AssistantProperties(true, "test-key", "claude-opus-5-5", 1000, 6, "medium", 1000);
+                new AssistantProperties(true, "test-key", "claude-opus-5-5", 1000, 6, "medium");
         AnthropicAssistantModel model = new AnthropicAssistantModel(
                 AnthropicOkHttpClient.builder()
                         .apiKey("test-key")
