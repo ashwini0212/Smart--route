@@ -24,6 +24,8 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -85,14 +87,17 @@ class DemoDataSeeder implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         if (warehouses.count() > 0) {
+            // A seed cut short (a deploy stopped mid-way) leaves data but maybe no logins: add any missing ones.
             log.info("Seed skipped: database already has data");
+            seedUsers(drivers.list(null, PageRequest.of(0, 2, Sort.by("id"))).getContent());
             return;
         }
         Random random = new Random(properties.randomSeed());
         List<WarehouseResponse> hubs = seedWarehouses();
         List<DriverResponse> seededDrivers = seedFleet(random, hubs);
-        seedOrders(random, hubs);
+        // Logins before orders: orders are the slow part, and the demo is unusable without a login.
         seedUsers(seededDrivers);
+        seedOrders(random, hubs);
         log.info("Seeded {} warehouses, {} drivers with vehicles, {} orders (seed {})",
                 hubs.size(), seededDrivers.size(), properties.orders(), properties.randomSeed());
     }
@@ -161,15 +166,26 @@ class DemoDataSeeder implements ApplicationRunner {
             log.warn("DEMO_USER_PASSWORD is not set: no demo logins were created");
             return;
         }
-        users.create(new CreateUserRequest("admin@smartroute.local", "Demo Admin", Role.ADMIN, null, password));
-        users.create(new CreateUserRequest("dispatcher@smartroute.local", "Demo Dispatcher", Role.DISPATCHER, null, password));
-        users.create(new CreateUserRequest("viewer@smartroute.local", "Demo Viewer", Role.VIEWER, null, password));
+        int created = 0;
+        created += createIfMissing(new CreateUserRequest("admin@smartroute.local", "Demo Admin", Role.ADMIN, null, password));
+        created += createIfMissing(new CreateUserRequest("dispatcher@smartroute.local", "Demo Dispatcher", Role.DISPATCHER, null, password));
+        created += createIfMissing(new CreateUserRequest("viewer@smartroute.local", "Demo Viewer", Role.VIEWER, null, password));
         for (int i = 0; i < Math.min(2, seededDrivers.size()); i++) {
             DriverResponse driver = seededDrivers.get(i);
-            users.create(new CreateUserRequest("driver%d@smartroute.local".formatted(i + 1), driver.fullName(),
+            created += createIfMissing(new CreateUserRequest("driver%d@smartroute.local".formatted(i + 1), driver.fullName(),
                     Role.DRIVER, driver.id(), password));
         }
-        log.info("Created demo logins for every role (password from DEMO_USER_PASSWORD)");
+        if (created > 0) {
+            log.info("Created {} demo logins (password from DEMO_USER_PASSWORD)", created);
+        }
+    }
+
+    private int createIfMissing(CreateUserRequest request) {
+        if (users.emailTaken(request.email())) {
+            return 0;
+        }
+        users.create(request);
+        return 1;
     }
 
     private static VehicleRequest vehicleFor(VehicleType type, int index) {

@@ -52,6 +52,10 @@ public class UserAccountService {
         return UserResponse.from(load(id));
     }
 
+    public boolean emailTaken(String email) {
+        return users.existsByEmail(normalizeEmail(email));
+    }
+
     public boolean anyEnabledAdmin() {
         return users.countByRoleAndEnabledTrue(Role.ADMIN) > 0;
     }

@@ -16,6 +16,9 @@ class DemoDataSeederTest {
     @Autowired
     private JdbcTemplate jdbc;
 
+    @Autowired
+    private DemoDataSeeder seeder;
+
     private long count(String sql) {
         return jdbc.queryForObject(sql, Long.class);
     }
@@ -43,6 +46,19 @@ class DemoDataSeederTest {
         assertThat(count("SELECT count(DISTINCT role) FROM app_user")).isEqualTo(4);
         assertThat(count("SELECT count(*) FROM app_user WHERE role = 'DRIVER' AND driver_id IS NOT NULL")).isEqualTo(2);
         assertThat(count("SELECT count(*) FROM app_user WHERE email NOT LIKE '%@smartroute.local'")).isZero();
+    }
+
+    @Test
+    void rerunOnExistingDataAddsOnlyTheMissingLogins() {
+        // A seed stopped before the logins were written: the data is there, the users are not.
+        jdbc.update("DELETE FROM app_user WHERE email IN ('viewer@smartroute.local', 'driver2@smartroute.local')");
+
+        seeder.run(null);
+
+        assertThat(count("SELECT count(*) FROM app_user WHERE email LIKE '%@smartroute.local'")).isEqualTo(5);
+        assertThat(count("SELECT count(*) FROM app_user WHERE role = 'DRIVER' AND driver_id IS NOT NULL")).isEqualTo(2);
+        assertThat(count("SELECT count(*) FROM warehouse")).isEqualTo(4);
+        assertThat(count("SELECT count(*) FROM delivery_order")).isEqualTo(600);
     }
 
     @Test

@@ -8,6 +8,8 @@
 #     certificate authority is the provider's own, passed in as PEM text rather than a keystore file.
 #   - The free Kafka plan allows five topics, so every event goes to one topic (see EventTopics).
 #   - The free web service has 512 MB of memory, so the pools are smaller than the defaults.
+#   - The database is a long network hop away and the seed writes row by row: the full 120 drivers and
+#     600 orders took over 15 minutes and Render stopped the deploy, so the demo data set is smaller.
 
 spring:
   data:
@@ -37,3 +39,6 @@ smartroute:
     single-topic: ${EVENTS_SINGLE_TOPIC:smartroute.events}
     topic-partitions: ${EVENTS_TOPIC_PARTITIONS:2}
     topic-replicas: ${EVENTS_TOPIC_REPLICAS:0}
+  seed:
+    drivers: ${SEED_DRIVERS:40}
+    orders: ${SEED_ORDERS:120}
