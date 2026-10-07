@@ -2,7 +2,6 @@ package com.smartroute.tracking;
 
 import com.smartroute.events.EventEnvelope;
 import com.smartroute.events.EventEnvelopeReader;
-import com.smartroute.events.EventType;
 import com.smartroute.fleet.LocationSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,14 +40,8 @@ class LiveFeedListener {
         this.stream = stream;
     }
 
-    @KafkaListener(groupId = GROUP, topics = {
-            EventType.Topics.ORDER_CREATED,
-            EventType.Topics.ORDER_ASSIGNED,
-            EventType.Topics.DELIVERY_STARTED,
-            EventType.Topics.DELIVERY_COMPLETED,
-            EventType.Topics.DELIVERY_DELAYED,
-            EventType.Topics.ROUTE_RECALCULATED,
-            EventType.Topics.DRIVER_LOCATION})
+    // Every event topic, whichever layout is configured (see EventTopics).
+    @KafkaListener(groupId = GROUP, topics = "#{@eventTopics.subscriptions()}")
     void onEvent(String message) {
         EventEnvelope envelope = reader.read(message);
         switch (envelope.type()) {

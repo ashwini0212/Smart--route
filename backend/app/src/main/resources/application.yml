@@ -107,6 +107,13 @@ smartroute:
     enabled: ${EVENTS_ENABLED:true}
     relay-interval: ${EVENTS_RELAY_INTERVAL:500ms}
     keep-published: ${EVENTS_KEEP_PUBLISHED:7d}
+    # Empty: one topic per lifecycle step (7 topics + 7 dead-letter topics). A name: every event on that one
+    # topic plus its .DLT, for managed brokers that cap the topic count. See EventTopics.
+    single-topic: ${EVENTS_SINGLE_TOPIC:}
+    create-topics: ${EVENTS_CREATE_TOPICS:true}
+    topic-partitions: ${EVENTS_TOPIC_PARTITIONS:3}
+    # Zero or less: the broker's default replication factor.
+    topic-replicas: ${EVENTS_TOPIC_REPLICAS:1}
   assistant:
     # The one optional feature (FR-24). Off unless both the flag is on and a key is present: a flag without a
     # key is not a configured assistant, and the API says so rather than failing on the first question.

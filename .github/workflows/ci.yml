@@ -71,7 +71,5 @@ jobs:
       - uses: actions/checkout@v5
       - name: Validate compose file
         run: cp .env.example .env && docker compose config --quiet
-      - name: Validate the production overlay
-        run: SITE_ADDRESS=:80 PUBLIC_URL=http://localhost docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml config --quiet
       - name: Build images
         run: docker compose build

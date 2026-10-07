@@ -36,14 +36,8 @@ class EventLogListener {
         this.objectMapper = objectMapper;
     }
 
-    @KafkaListener(groupId = GROUP, topics = {
-            EventType.Topics.ORDER_CREATED,
-            EventType.Topics.ORDER_ASSIGNED,
-            EventType.Topics.DELIVERY_STARTED,
-            EventType.Topics.DELIVERY_COMPLETED,
-            EventType.Topics.DELIVERY_DELAYED,
-            EventType.Topics.ROUTE_RECALCULATED,
-            EventType.Topics.DRIVER_LOCATION})
+    // Every event topic, whichever layout is configured (see EventTopics).
+    @KafkaListener(groupId = GROUP, topics = "#{@eventTopics.subscriptions()}")
     void onEvent(String message) {
         EventEnvelope envelope = reader.read(message);
         consumers.handleOnce(GROUP, envelope, this::record);

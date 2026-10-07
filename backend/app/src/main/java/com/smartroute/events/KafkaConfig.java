@@ -7,15 +7,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.util.backoff.ExponentialBackOff;
-
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Topics, retry policy and dead-letter handling.
@@ -34,27 +30,20 @@ class KafkaConfig {
 
     private static final Logger log = LoggerFactory.getLogger(KafkaConfig.class);
     static final int MAX_ATTEMPTS = 4;
-    static final int PARTITIONS = 3;
-
     /**
      * Created at startup so a fresh cluster has the topics with the intended partition count (auto-created
      * topics would get the broker default, and the partition count cannot be lowered later; the brokers here
-     * have auto-creation off anyway). Three partitions: enough to spread load, while all events of one order
-     * share a key and therefore a partition.
+     * have auto-creation off anyway). Three partitions by default: enough to spread load, while all events of
+     * one order share a key and therefore a partition. Which topics, see {@link EventTopics}.
      *
      * <p>Declared as {@link KafkaAdmin.NewTopics} rather than a {@code List<NewTopic>} bean, which
      * {@code KafkaAdmin} does not look at: with the list, nothing was created and every publish failed with
      * UNKNOWN_TOPIC_OR_PARTITION.
      */
     @Bean
-    KafkaAdmin.NewTopics smartrouteTopics() {
-        List<NewTopic> topics = new ArrayList<>();
-        for (String topic : EventType.Topics.ALL) {
-            topics.add(TopicBuilder.name(topic).partitions(PARTITIONS).replicas(1).build());
-            // One partition for a dead-letter topic: nothing reads it at speed, and order is easier to follow.
-            topics.add(TopicBuilder.name(topic + ".DLT").partitions(1).replicas(1).build());
-        }
-        return new KafkaAdmin.NewTopics(topics.toArray(NewTopic[]::new));
+    @ConditionalOnProperty(name = "smartroute.events.create-topics", matchIfMissing = true)
+    KafkaAdmin.NewTopics smartrouteTopics(EventTopics eventTopics) {
+        return new KafkaAdmin.NewTopics(eventTopics.toCreate().toArray(NewTopic[]::new));
     }
 
     @Bean

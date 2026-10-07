@@ -1,0 +1,39 @@
+# Settings for running on free managed services instead of docker-compose (see docs/deployment.md).
+# Activate with SPRING_PROFILES_ACTIVE=seed,cloud. Everything else still comes from application.yml.
+#
+# Why each line exists:
+#   - Redis is reached through one URL (Render's Key Value gives redis://host:port, a hosted Redis may give
+#     rediss://user:password@host:port), not the host/port pair the compose stack uses.
+#   - Kafka is a managed cluster reached over TLS with a username and password (SASL/SCRAM), and the
+#     certificate authority is the provider's own, passed in as PEM text rather than a keystore file.
+#   - The free Kafka plan allows five topics, so every event goes to one topic (see EventTopics).
+#   - The free web service has 512 MB of memory, so the pools are smaller than the defaults.
+
+spring:
+  data:
+    redis:
+      url: ${REDIS_URL}
+      # A managed Redis is a network hop away, not on the same Docker network.
+      timeout: 1s
+      connect-timeout: 2s
+  datasource:
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:4}
+  kafka:
+    properties:
+      security.protocol: ${KAFKA_SECURITY_PROTOCOL:SASL_SSL}
+      sasl.mechanism: ${KAFKA_SASL_MECHANISM:SCRAM-SHA-256}
+      sasl.jaas.config: org.apache.kafka.common.security.scram.ScramLoginModule required username="${KAFKA_USERNAME}" password="${KAFKA_PASSWORD}";
+      ssl.truststore.type: PEM
+      ssl.truststore.certificates: ${KAFKA_CA_CERT}
+
+server:
+  tomcat:
+    threads:
+      max: ${SERVER_TOMCAT_THREADS_MAX:50}
+
+smartroute:
+  events:
+    single-topic: ${EVENTS_SINGLE_TOPIC:smartroute.events}
+    topic-partitions: ${EVENTS_TOPIC_PARTITIONS:2}
+    topic-replicas: ${EVENTS_TOPIC_REPLICAS:0}

@@ -14,7 +14,7 @@ Delivery companies continuously decide which driver takes an order, which route 
 
 | Area | State |
 |---|---|
-| Backend | Spring Boot 4 modular monolith: warehouses, drivers, vehicles, orders with a status state machine and history; Flyway schema on PostgreSQL; one JSON error format with trace ids; OpenAPI docs; fictional seed data (120 drivers, 600 orders); 313 tests in the application module, 248 of them against real PostgreSQL and Redis in Testcontainers (10 of those also against real Kafka) and 65 that need no container, plus 116 for the algorithms module. See [Phase 4](docs/phases/phase-4-domain-database.md) |
+| Backend | Spring Boot 4 modular monolith: warehouses, drivers, vehicles, orders with a status state machine and history; Flyway schema on PostgreSQL; one JSON error format with trace ids; OpenAPI docs; fictional seed data (120 drivers, 600 orders); 318 tests in the application module, 249 of them against real PostgreSQL and Redis in Testcontainers (11 of those also against real Kafka) and 69 that need no container, plus 116 for the algorithms module. See [Phase 4](docs/phases/phase-4-domain-database.md) |
 | Routing API | Shortest/fastest routes (A*, optimal) and up to 3 alternatives (heuristic) between any two points, snapped to the road network; traffic multipliers with versioned network snapshots; Redis cache-aside that keeps working when Redis is down; route history. Runs on the **synthetic** city unless a real dataset is configured. See [Phase 6](docs/phases/phase-6-routing-api.md) |
 | Assignment | Driver candidates ranked by a weighted score (ETA from the road graph, workload, capacity fit, **heuristic**), manual assignment and greedy auto-dispatch, both safe against double-booking under row locks; driver delivery endpoints; weights editable by an admin. See [Phase 7](docs/phases/phase-7-assignment.md) |
 | Multi-stop routes | Visiting order for up to 20 stops: exact (Held-Karp) up to 12 stops, nearest neighbour + 2-opt above, always stating which ran; arrival times with service time, stops that miss their window flagged, capacity enforced; the same for a driver's own deliveries. See [Phase 8](docs/phases/phase-8-multi-stop-optimization.md) |
@@ -34,7 +34,7 @@ Delivery companies continuously decide which driver takes an order, which route 
 
 ## Deployment
 
-The same Compose stack runs on one server behind Caddy (automatic HTTPS), with a GitHub Actions job that redeploys every green `main`. Setup, costs, measured memory and what is simulated on a public site: [docs/deployment.md](docs/deployment.md).
+Free tiers only: the frontend on Vercel, the backend and Redis on Render, PostgreSQL on Neon and Kafka on Aiven (all events on one topic, because the free Kafka plan allows five). `render.yaml` and `frontend/vercel.json` hold the configuration. The step-by-step guide, every environment variable, memory measured under a 512 MB limit, and what the free plans cost in behaviour (cold starts, Kafka powering off when idle) are in [docs/deployment.md](docs/deployment.md).
 
 ## Tech stack
 
