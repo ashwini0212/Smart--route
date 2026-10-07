@@ -1,0 +1,101 @@
+# Render Blueprint for the SmartRoute backend on Render's free plan (see docs/deployment.md).
+# Render reads this file when you create a Blueprint from the repository. Values marked `sync: false` are
+# asked for once in the Render dashboard and are never stored in the repository.
+#
+# What runs where:
+#   backend      this web service (Docker, free plan: 512 MB, spins down after 15 minutes without traffic)
+#   Redis        Render Key Value, free plan, below (25 MB, in memory only, reachable only from Render)
+#   PostgreSQL   Neon, free plan (Render's free PostgreSQL is deleted after 30 days)
+#   Kafka        Aiven for Apache Kafka, free plan (Render has no Kafka)
+#   frontend     Vercel, see frontend/vercel.json
+#
+# Keep all three external services in the same region as this one (singapore below) or every request pays
+# for the round trip.
+
+services:
+  - type: web
+    name: smartroute-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /actuator/health/readiness
+    # Deploy a commit only after its GitHub checks (the CI workflow) have passed.
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - backend/**
+        - render.yaml
+    envVars:
+      - key: SERVER_PORT
+        value: "10000"
+      # "cloud" switches Redis, Kafka and the pool sizes to the managed services, see application-cloud.yml.
+      # "seed" loads the fictional demo data on the first start (empty database only).
+      - key: SPRING_PROFILES_ACTIVE
+        value: seed,cloud
+      # Fits the JVM into 512 MB. Measured locally under a 512 MB limit with 16 concurrent clients:
+      # peak resident memory 455 MB, no restart (docs/deployment.md, "Memory").
+      - key: JAVA_TOOL_OPTIONS
+        value: >-
+          -XX:MaxRAMPercentage=40 -XX:+UseSerialGC -Xss512k -XX:ReservedCodeCacheSize=48m
+          -XX:MaxMetaspaceSize=160m -XX:MaxDirectMemorySize=32m -XX:TieredStopAtLevel=1
+      - key: DEPLOY_ENV
+        value: production
+
+      # --- PostgreSQL (Neon) ---
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+
+      # --- Redis (Render Key Value, wired automatically) ---
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: smartroute-cache
+          property: connectionString
+
+      # --- Kafka (Aiven, SASL/SCRAM over TLS) ---
+      - key: KAFKA_BOOTSTRAP_SERVERS
+        sync: false
+      - key: KAFKA_USERNAME
+        sync: false
+      - key: KAFKA_PASSWORD
+        sync: false
+      - key: KAFKA_CA_CERT
+        sync: false
+      # Fewer empty outbox queries than the 500 ms default, so the free database is woken less often.
+      - key: EVENTS_RELAY_INTERVAL
+        value: 2s
+
+      # --- Security ---
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DEMO_USER_PASSWORD
+        sync: false
+      # The Vercel address, e.g. https://smartroute.vercel.app
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+
+      # --- [SIMULATION] moving drivers so the live map has something to show; every position is labelled ---
+      - key: SIMULATE_DRIVERS
+        value: "true"
+      - key: SIMULATE_TRAFFIC
+        value: "false"
+
+      # --- Optional assistant: off. Turning it on needs ANTHROPIC_API_KEY and is paid per question. ---
+      - key: ASSISTANT_ENABLED
+        value: "false"
+
+  - type: keyvalue
+    name: smartroute-cache
+    plan: free
+    region: singapore
+    # No addresses outside Render may connect; the backend reaches it over Render's private network.
+    ipAllowList: []
+    # Only keys with an expiry (cached routes, live positions) may be evicted when the 25 MB fill up, never
+    # the driver location index the assignment pre-filter reads.
+    maxmemoryPolicy: volatile-lru

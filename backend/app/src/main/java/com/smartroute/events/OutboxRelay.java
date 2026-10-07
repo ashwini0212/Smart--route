@@ -38,13 +38,16 @@ public class OutboxRelay {
 
     private final OutboxEventRepository outbox;
     private final KafkaTemplate<String, String> kafka;
+    private final EventTopics topics;
     private final Clock clock;
     private final Counter published;
     private final Counter failed;
 
-    OutboxRelay(OutboxEventRepository outbox, KafkaTemplate<String, String> kafka, Clock clock, MeterRegistry meters) {
+    OutboxRelay(OutboxEventRepository outbox, KafkaTemplate<String, String> kafka, EventTopics topics, Clock clock,
+                MeterRegistry meters) {
         this.outbox = outbox;
         this.kafka = kafka;
+        this.topics = topics;
         this.clock = clock;
         this.published = Counter.builder("smartroute.events.published").register(meters);
         this.failed = Counter.builder("smartroute.events.publish.failed").register(meters);
@@ -64,7 +67,7 @@ public class OutboxRelay {
         for (OutboxEvent event : pending) {
             try {
                 // Each send is awaited: ordering per aggregate matters more here than throughput.
-                kafka.send(event.getTopic(), event.getPartitionKey(), envelopeJson(event))
+                kafka.send(topics.destination(event.getTopic()), event.getPartitionKey(), envelopeJson(event))
                         .get(SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
                 event.markPublished(clock.instant());
                 published.increment();
