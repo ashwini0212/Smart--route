@@ -16,7 +16,7 @@
 
     <properties>
         <springdoc.version>3.1.1</springdoc.version>
-        <anthropic.version>2.68.0</anthropic.version>
+        <anthropic.version>2.71.0</anthropic.version>
         <archunit.version>1.5.1</archunit.version>
     </properties>
 
